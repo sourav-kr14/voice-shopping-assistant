@@ -27,22 +27,45 @@ export default function Home() {
 
         <div className="bg-white rounded-xl shadow p-6 mb-6 flex flex-col items-center gap-4">
           <VoiceButton
-            onTranscript={(text) => {
+            onTranscript={async(text) => {
               setTranscript(text);
 
-              const parsed = parseCommand(text); 
+              const parsed = parseCommand(text);
               const { action, item, quantity } = parsed;
 
               if (action === "add" && item) {
-                setItems((prev) => [
-                  ...prev,
-                  {
-                    id: crypto.randomUUID(), 
-                    name: item,
-                    quantity,
-                    category: "Uncategorized",
-                  },
-                ]);
+                const response = await fetch("/api/categorize", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ item }),
+                });
+
+                const data = await response.json();
+                const aiCategory = data.category || "Others";
+
+                setItems((prev) => {
+                  const existingItem = prev.find(
+                    (i) => i.name.toLowerCase() === item.toLowerCase(),
+                  );
+
+                  if (existingItem) {
+                    return prev.map((i) =>
+                      i.name.toLowerCase() === item.toLowerCase()
+                        ? { ...i, quantity: i.quantity + quantity }
+                        : i,
+                    );
+                  }
+
+                  return [
+                    ...prev,
+                    {
+                      id: crypto.randomUUID(),
+                      name: item,
+                      quantity,
+                      category: aiCategory,
+                    },
+                  ];
+                });
               }
 
               if (action === "remove" && item) {
