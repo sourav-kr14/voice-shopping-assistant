@@ -6,22 +6,26 @@ import { motion } from "framer-motion";
 
 interface SmartInsightsProps {
   frequent: string[];
-  onAdd: (item: string) => void; 
+  reorder: string[];
+  seasonal: string[];
+  alsoBought: string[];
+  onAdd: (item: string) => void;
 }
 
 export default function SmartInsights({ frequent, onAdd }: SmartInsightsProps) {
   const seasonalPicks = useMemo(() => {
     const month = new Date().getMonth();
-    if (month >= 2 && month <= 4) return ["Strawberries", "Asparagus", "Spinach"];
+    if (month >= 2 && month <= 4)
+      return ["Strawberries", "Asparagus", "Spinach"];
     if (month >= 5 && month <= 7) return ["Mangoes", "Watermelon", "Corn"];
-    if (month >= 8 && month <= 10) return ["Apples", "Pumpkins", "Sweet Potato"];
+    if (month >= 8 && month <= 10)
+      return ["Apples", "Pumpkins", "Sweet Potato"];
     return ["Oranges", "Brussels Sprouts", "Carrots"];
   }, []);
 
   return (
     <section className="grid md:grid-cols-2 gap-8 pt-10">
-      
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, x: -30 }}
         whileInView={{ opacity: 1, x: 0 }}
         viewport={{ once: true }}
@@ -35,7 +39,7 @@ export default function SmartInsights({ frequent, onAdd }: SmartInsightsProps) {
         <div className="flex flex-wrap gap-2">
           {frequent.length > 0 ? (
             frequent.map((item, i) => (
-              <motion.span 
+              <motion.span
                 key={i}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
@@ -45,13 +49,14 @@ export default function SmartInsights({ frequent, onAdd }: SmartInsightsProps) {
               </motion.span>
             ))
           ) : (
-            <p className="text-slate-400 text-xs italic">Data will appear as you shop.</p>
+            <p className="text-slate-400 text-xs italic">
+              Data will appear as you shop.
+            </p>
           )}
         </div>
       </motion.div>
 
-
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, x: 30 }}
         whileInView={{ opacity: 1, x: 0 }}
         viewport={{ once: true }}
@@ -64,9 +69,12 @@ export default function SmartInsights({ frequent, onAdd }: SmartInsightsProps) {
 
         <div className="flex flex-wrap gap-2">
           {seasonalPicks.map((item, i) => (
-            <motion.button 
-              key={i} 
-              whileHover={{ scale: 1.05, backgroundColor: "rgba(255,255,255,0.25)" }}
+            <motion.button
+              key={i}
+              whileHover={{
+                scale: 1.05,
+                backgroundColor: "rgba(255,255,255,0.25)",
+              }}
               whileTap={{ scale: 0.95 }}
               onClick={() => onAdd(`Add ${item}`)}
               className="px-4 py-2 bg-white/15 backdrop-blur-md text-white rounded-xl text-xs font-black border border-white/10 flex items-center gap-1 transition-colors"
@@ -78,7 +86,12 @@ export default function SmartInsights({ frequent, onAdd }: SmartInsightsProps) {
 
         <div className="mt-6 flex items-center gap-2 text-[10px] font-bold text-indigo-100/80 tracking-tighter uppercase">
           <Calendar size={12} />
-          <span>Refreshed for {new Intl.DateTimeFormat('en-US', { month: 'long' }).format(new Date())}</span>
+          <span>
+            Refreshed for{" "}
+            {new Intl.DateTimeFormat("en-US", { month: "long" }).format(
+              new Date(),
+            )}
+          </span>
         </div>
       </motion.div>
     </section>

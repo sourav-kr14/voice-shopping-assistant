@@ -14,13 +14,18 @@ import { mockProducts, Product } from "@/src/utils/mockProduct";
 import { getSmartSuggestions } from "@/src/utils/smartSuggestions";
 import { getSubstitutes } from "@/src/utils/substitutes";
 import { recordPurchase } from "@/src/utils/purchaseHistory";
+import {
+  recordBasket,
+  getPeopleAlsoBought,
+} from "@/src/utils/basketIntelligence";
 
 export default function Home() {
   const [items, setItems] = useState<any[]>([]);
-  const [transcript, setTranscript] = useState("");
   const [searchResults, setSearchResults] = useState<Product[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Local Storage
 
   useEffect(() => {
     const saved = localStorage.getItem("shopping-items");
@@ -31,7 +36,8 @@ export default function Home() {
     localStorage.setItem("shopping-items", JSON.stringify(items));
   }, [items]);
 
-  
+  // Group by Category
+
   const groupedItems = useMemo(() => {
     return items.reduce(
       (acc, item) => {
@@ -43,12 +49,20 @@ export default function Home() {
     );
   }, [items]);
 
- 
+  // Smart Suggestions
+
   const smartSuggestions = useMemo(() => {
     return getSmartSuggestions();
   }, [items]);
 
- 
+  const alsoBought = useMemo(() => {
+    if (items.length === 0) return [];
+    const lastItem = items[items.length - 1]?.name;
+    return lastItem ? getPeopleAlsoBought(lastItem) : [];
+  }, [items]);
+
+  // Quantity Update
+
   const handleUpdateQuantity = (name: string, delta: number) => {
     setItems((prev) =>
       prev.map((item) =>
@@ -62,7 +76,8 @@ export default function Home() {
     );
   };
 
-  
+  // Remove Item
+
   const handleRemoveItem = (name: string) => {
     setItems((prev) =>
       prev.filter((i) => i.name.toLowerCase() !== name.toLowerCase()),
@@ -70,94 +85,111 @@ export default function Home() {
     setMessage(`Removed ${name}`);
   };
 
- 
+  // Voice Command Handler
+
   const handleVoiceCommand = async (text: string) => {
     try {
-      setTranscript(text);
       const parsed = parseCommand(text);
 
-      if (!parsed || (!parsed.item && parsed.action !== "clear")) {
-        setMessage("I didn't quite catch that. Try 'Add milk'.");
+      if (!parsed) {
+        setMessage("I didn't understand that.");
         return;
       }
 
-      const { action, item, quantity, maxPrice } = parsed;
-      const safeQuantity = quantity && quantity > 0 ? quantity : 1;
+      const { action, items: parsedItems, maxPrice } = parsed;
 
       switch (action) {
         case "add":
-          if (!item) return;
+          if (!parsedItems || parsedItems.length === 0) return;
 
           setIsLoading(true);
 
-          let aiCategory = "Others";
-          try {
-            const response = await fetch("/api/categorize", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ item }),
+          for (const entry of parsedItems) {
+            const { item, quantity } = entry;
+
+            let aiCategory = "Others";
+
+            try {
+              const response = await fetch("/api/categorize", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ item }),
+              });
+
+              if (response.ok) {
+                const data = await response.json();
+                aiCategory = data?.category || "Others";
+              }
+            } catch {
+              console.error("AI Categorization failed");
+            }
+
+            setItems((prev) => {
+              const existing = prev.find(
+                (i) => i.name.toLowerCase() === item.toLowerCase(),
+              );
+
+              let updated;
+
+              if (existing) {
+                updated = prev.map((i) =>
+                  i.name.toLowerCase() === item.toLowerCase()
+                    ? {
+                        ...i,
+                        quantity: i.quantity + quantity,
+                        addedCount: (i.addedCount || 0) + 1,
+                      }
+                    : i,
+                );
+              } else {
+                updated = [
+                  ...prev,
+                  {
+                    id: crypto.randomUUID(),
+                    name: item,
+                    quantity,
+                    category: aiCategory,
+                    addedCount: 1,
+                  },
+                ];
+              }
+
+              recordBasket(updated.map((i) => i.name));
+
+              return updated;
             });
 
-            if (response.ok) {
-              const data = await response.json();
-              aiCategory = data?.category || "Others";
-            }
-          } catch (err) {
-            console.error("AI Categorization failed");
+            recordPurchase(item);
           }
 
-          setItems((prev) => {
-            const existing = prev.find(
-              (i) => i.name.toLowerCase() === item.toLowerCase(),
-            );
-
-            if (existing) {
-              return prev.map((i) =>
-                i.name.toLowerCase() === item.toLowerCase()
-                  ? {
-                      ...i,
-                      quantity: i.quantity + safeQuantity,
-                      addedCount: i.addedCount + 1,
-                    }
-                  : i,
-              );
-            }
-
-            return [
-              ...prev,
-              {
-                id: crypto.randomUUID(),
-                name: item,
-                quantity: safeQuantity,
-                category: aiCategory,
-                addedCount: 1,
-              },
-            ];
-          });
-
-         
-          recordPurchase(item);
-
-          setMessage(`Added ${safeQuantity} ${item} to ${aiCategory}`);
-          setSearchResults([]);
+          setMessage("Items added successfully.");
           setIsLoading(false);
           break;
 
         case "remove":
-          if (!item) return;
+          if (!parsedItems || parsedItems.length === 0) return;
 
           setItems((prev) =>
-            prev.filter((i) => i.name.toLowerCase() !== item.toLowerCase()),
+            prev.filter(
+              (i) =>
+                !parsedItems.some(
+                  (entry) => entry.item.toLowerCase() === i.name.toLowerCase(),
+                ),
+            ),
           );
 
-          setMessage(`Removed ${item}`);
+          setMessage("Items removed.");
           break;
 
+        // SEARCH
+
         case "search":
-          if (!item) return;
+          if (!parsedItems || parsedItems.length === 0) return;
+
+          const searchTerm = parsedItems[0].item;
 
           let results = mockProducts.filter((p) =>
-            p.name.toLowerCase().includes(item.toLowerCase()),
+            p.name.toLowerCase().includes(searchTerm.toLowerCase()),
           );
 
           if (maxPrice) {
@@ -165,13 +197,14 @@ export default function Home() {
           }
 
           if (results.length === 0) {
-            const alternatives = getSubstitutes(item);
+            const alternatives = getSubstitutes(searchTerm);
+
             if (alternatives.length > 0) {
               setMessage(
-                `No exact match. You may try: ${alternatives.join(", ")}`
+                `No exact match. You may try: ${alternatives.join(", ")}`,
               );
             } else {
-              setMessage(`No products found for ${item}`);
+              setMessage(`No products found for ${searchTerm}`);
             }
           } else {
             setMessage(`Found ${results.length} matches`);
@@ -213,17 +246,16 @@ export default function Home() {
 
         <SmartInsights
           frequent={items
-            .filter((i) => i.addedCount >= 2)
+            .filter((i) => (i.addedCount || 0) >= 2)
             .map((i) => i.name)}
           reorder={smartSuggestions.reorder}
           seasonal={smartSuggestions.seasonal}
+          alsoBought={alsoBought}
           onAdd={handleAddSuggestion}
         />
 
         {message && (
-          <div className="text-center text-sm text-gray-600">
-            {message}
-          </div>
+          <div className="text-center text-sm text-gray-600">{message}</div>
         )}
       </main>
 
