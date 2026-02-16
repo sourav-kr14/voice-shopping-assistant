@@ -7,8 +7,13 @@ import VoiceButton from "@/src/components/home/VoiceButton";
 import ShoppingList from "@/src/components/home/ShoppingList";
 import CatalogResults from "@/src/components/home/CatalogResults";
 import SmartInsights from "@/src/components/home/SmartInsights";
+
 import { parseCommand } from "@/src/utils/commandParser";
 import { mockProducts, Product } from "@/src/utils/mockProduct";
+
+import { getSmartSuggestions } from "@/src/utils/smartSuggestions";
+import { getSubstitutes } from "@/src/utils/substitutes";
+import { recordPurchase } from "@/src/utils/purchaseHistory";
 
 export default function Home() {
   const [items, setItems] = useState<any[]>([]);
@@ -16,29 +21,7 @@ export default function Home() {
   const [searchResults, setSearchResults] = useState<Product[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const handleAddSuggestion = (suggestionText: string) => {
-    handleVoiceCommand(suggestionText);
-  };
-  const handleUpdateQuantity = (name: string, delta: number) => {
-    setItems((prev) =>
-      prev.map((item) => {
-        if (item.name.toLowerCase() === name.toLowerCase()) {
-          const newQty = item.quantity + delta;
 
-          return { ...item, quantity: Math.max(1, newQty) };
-        }
-        return item;
-      }),
-    );
-  };
-  const handleRemoveItem = (name: string) => {
-    setItems((prev) =>
-      prev.filter((i) => i.name.toLowerCase() !== name.toLowerCase()),
-    );
-    setMessage(`Removed ${name}`);
-  };
-
-  // Logic (LocalStorage, Memoized functions) stays here or in custom hooks
   useEffect(() => {
     const saved = localStorage.getItem("shopping-items");
     if (saved) setItems(JSON.parse(saved));
@@ -48,6 +31,7 @@ export default function Home() {
     localStorage.setItem("shopping-items", JSON.stringify(items));
   }, [items]);
 
+  
   const groupedItems = useMemo(() => {
     return items.reduce(
       (acc, item) => {
@@ -59,6 +43,34 @@ export default function Home() {
     );
   }, [items]);
 
+ 
+  const smartSuggestions = useMemo(() => {
+    return getSmartSuggestions();
+  }, [items]);
+
+ 
+  const handleUpdateQuantity = (name: string, delta: number) => {
+    setItems((prev) =>
+      prev.map((item) =>
+        item.name.toLowerCase() === name.toLowerCase()
+          ? {
+              ...item,
+              quantity: Math.max(1, item.quantity + delta),
+            }
+          : item,
+      ),
+    );
+  };
+
+  
+  const handleRemoveItem = (name: string) => {
+    setItems((prev) =>
+      prev.filter((i) => i.name.toLowerCase() !== name.toLowerCase()),
+    );
+    setMessage(`Removed ${name}`);
+  };
+
+ 
   const handleVoiceCommand = async (text: string) => {
     try {
       setTranscript(text);
@@ -75,9 +87,9 @@ export default function Home() {
       switch (action) {
         case "add":
           if (!item) return;
+
           setIsLoading(true);
 
-          // 1. Get AI-powered category
           let aiCategory = "Others";
           try {
             const response = await fetch("/api/categorize", {
@@ -85,12 +97,13 @@ export default function Home() {
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ item }),
             });
+
             if (response.ok) {
               const data = await response.json();
               aiCategory = data?.category || "Others";
             }
           } catch (err) {
-            console.error("AI Categorization failed, defaulting to Others");
+            console.error("AI Categorization failed");
           }
 
           setItems((prev) => {
@@ -122,6 +135,9 @@ export default function Home() {
             ];
           });
 
+         
+          recordPurchase(item);
+
           setMessage(`Added ${safeQuantity} ${item} to ${aiCategory}`);
           setSearchResults([]);
           setIsLoading(false);
@@ -129,15 +145,17 @@ export default function Home() {
 
         case "remove":
           if (!item) return;
+
           setItems((prev) =>
             prev.filter((i) => i.name.toLowerCase() !== item.toLowerCase()),
           );
-          setMessage(`Removed ${item} from your list`);
-          setSearchResults([]);
+
+          setMessage(`Removed ${item}`);
           break;
 
         case "search":
           if (!item) return;
+
           let results = mockProducts.filter((p) =>
             p.name.toLowerCase().includes(item.toLowerCase()),
           );
@@ -146,12 +164,20 @@ export default function Home() {
             results = results.filter((p) => p.price <= maxPrice);
           }
 
+          if (results.length === 0) {
+            const alternatives = getSubstitutes(item);
+            if (alternatives.length > 0) {
+              setMessage(
+                `No exact match. You may try: ${alternatives.join(", ")}`
+              );
+            } else {
+              setMessage(`No products found for ${item}`);
+            }
+          } else {
+            setMessage(`Found ${results.length} matches`);
+          }
+
           setSearchResults(results);
-          setMessage(
-            results.length > 0
-              ? `Found ${results.length} matches`
-              : `No products found for ${item}`,
-          );
           break;
 
         default:
@@ -164,9 +190,14 @@ export default function Home() {
     }
   };
 
+  const handleAddSuggestion = (text: string) => {
+    handleVoiceCommand(text);
+  };
+
   return (
     <div className="flex flex-col min-h-screen bg-[#F8FAFC]">
       <Header />
+
       <main className="flex-grow max-w-4xl mx-auto w-full px-6 py-10 space-y-10">
         <div className="flex justify-center py-12">
           <VoiceButton onTranscript={handleVoiceCommand} />
@@ -177,13 +208,25 @@ export default function Home() {
           onUpdateQuantity={handleUpdateQuantity}
           onRemove={handleRemoveItem}
         />
+
         <CatalogResults results={searchResults} />
 
         <SmartInsights
-          frequent={items.filter((i) => i.addedCount >= 2).map((i) => i.name)}
-          onAdd={handleAddSuggestion} // Pass the function here
+          frequent={items
+            .filter((i) => i.addedCount >= 2)
+            .map((i) => i.name)}
+          reorder={smartSuggestions.reorder}
+          seasonal={smartSuggestions.seasonal}
+          onAdd={handleAddSuggestion}
         />
+
+        {message && (
+          <div className="text-center text-sm text-gray-600">
+            {message}
+          </div>
+        )}
       </main>
+
       <Footer />
     </div>
   );

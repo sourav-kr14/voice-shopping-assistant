@@ -20,7 +20,7 @@ export default function SmartInsights({ frequent, onAdd }: SmartInsightsProps) {
 
   return (
     <section className="grid md:grid-cols-2 gap-8 pt-10">
-      {/* Often Purchased - Slide in from Left */}
+      
       <motion.div 
         initial={{ opacity: 0, x: -30 }}
         whileInView={{ opacity: 1, x: 0 }}
@@ -50,7 +50,7 @@ export default function SmartInsights({ frequent, onAdd }: SmartInsightsProps) {
         </div>
       </motion.div>
 
-      {/* Seasonal Picks - Slide in from Right */}
+
       <motion.div 
         initial={{ opacity: 0, x: 30 }}
         whileInView={{ opacity: 1, x: 0 }}
