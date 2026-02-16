@@ -7,9 +7,18 @@ interface VoiceButtonProps {
   onTranscript: (text: string) => void;
 }
 
+const supportedLanguages=[
+ { label:"English(US)",code:"en-US"},
+ { label:"English(India)",code:"en-IN"},
+ { label:"Hindi",code:"hi-IN"},
+ { label:"German",code:"de-DE"},
+
+
+]
 export default function VoiceButton({ onTranscript }: VoiceButtonProps) {
   const [isListening, setIsListening] = useState(false);
   const [isSupported, setIsSupported] = useState(true);
+  const [language,setLanguage]=useState(typeof navigator !== 'undefined'? navigator.language:"en-US")
   const recognitionRef = useRef<any>(null);
 
   useEffect(() => {
@@ -25,7 +34,7 @@ export default function VoiceButton({ onTranscript }: VoiceButtonProps) {
     const recognition = new SpeechRecognition();
     recognition.continuous = false;
     recognition.interimResults = false;
-    recognition.lang = "en-US";
+    recognition.lang = language;
 
     recognition.onstart = () => setIsListening(true);
     recognition.onend = () => setIsListening(false);
@@ -45,7 +54,7 @@ export default function VoiceButton({ onTranscript }: VoiceButtonProps) {
     return () => {
       if (recognitionRef.current) recognitionRef.current.stop();
     };
-  }, [onTranscript]);
+  }, [language,onTranscript]);
 
   const toggleListening = () => {
     if (isListening) {
