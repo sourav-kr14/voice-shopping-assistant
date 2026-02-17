@@ -37,7 +37,7 @@ const Footer = () => {
                 <Twitter size={18} />
               </a>
               <a
-                href="#"
+                href="https://github.com/sourav-kr14/voice-shopping-assistant"
                 className="hover:text-emerald-500 transition-colors duration-200"
               >
                 <Github size={18} />

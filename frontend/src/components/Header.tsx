@@ -3,14 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  ShoppingBag,
-  Menu,
-  X,
-  ArrowRight,
-  Moon,
-  Sun,
-} from "lucide-react";
+import { ShoppingBag, Menu, X, ArrowRight, Moon, Sun } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const Header = () => {
@@ -47,25 +40,41 @@ const Header = () => {
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
-
   /* Persistent Dark Mode */
   useEffect(() => {
     const saved = localStorage.getItem("theme");
+
     if (saved === "dark") {
       document.documentElement.classList.add("dark");
       setDark(true);
+    } else if (saved === "light") {
+      document.documentElement.classList.remove("dark");
+      setDark(false);
+    } else {
+      // default: respect system preference
+      const prefersDark = window.matchMedia(
+        "(prefers-color-scheme: dark)",
+      ).matches;
+      if (prefersDark) {
+        document.documentElement.classList.add("dark");
+        setDark(true);
+      }
     }
   }, []);
 
-  useEffect(() => {
-    if (dark) {
-      document.documentElement.classList.add("dark");
-      localStorage.setItem("theme", "dark");
-    } else {
+  const toggleTheme = () => {
+    const isDark = document.documentElement.classList.contains("dark");
+
+    if (isDark) {
       document.documentElement.classList.remove("dark");
       localStorage.setItem("theme", "light");
+      setDark(false);
+    } else {
+      document.documentElement.classList.add("dark");
+      localStorage.setItem("theme", "dark");
+      setDark(true);
     }
-  }, [dark]);
+  };
 
   return (
     <>
@@ -82,9 +91,11 @@ const Header = () => {
         }`}
       >
         <div className="h-[72px] px-4 sm:px-6 md:px-12 lg:px-24 flex items-center justify-between">
-
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-3 group">
+          <Link
+            href="/"
+            className="flex items-center gap-3 group"
+          >
             <div className="relative">
               <div className="absolute inset-0 bg-indigo-500 blur-xl opacity-40 group-hover:opacity-70 transition rounded-xl" />
               <div className="relative bg-gradient-to-br from-indigo-500 to-purple-600 p-2.5 rounded-xl shadow-lg">
@@ -102,7 +113,10 @@ const Header = () => {
               const isActive = pathname === link.href;
 
               return (
-                <li key={link.name} className="relative">
+                <li
+                  key={link.name}
+                  className="relative"
+                >
                   <Link
                     href={link.href}
                     className={`text-sm font-semibold transition-colors duration-200 ${
@@ -127,16 +141,21 @@ const Header = () => {
 
           {/* Right Controls */}
           <div className="hidden md:flex items-center gap-4">
-
             {/* Dark Mode Toggle */}
             <button
-              onClick={() => setDark(!dark)}
+              onClick={toggleTheme}
               className="p-2 rounded-full bg-gray-100 dark:bg-gray-800 hover:scale-105 transition"
             >
               {dark ? (
-                <Sun size={18} className="text-yellow-400" />
+                <Sun
+                  size={18}
+                  className="text-yellow-400"
+                />
               ) : (
-                <Moon size={18} className="text-gray-700" />
+                <Moon
+                  size={18}
+                  className="text-gray-700"
+                />
               )}
             </button>
 
@@ -146,7 +165,10 @@ const Header = () => {
               className="flex items-center gap-2 px-5 h-10 rounded-full text-sm font-semibold text-white bg-gradient-to-r from-indigo-500 to-purple-600 hover:opacity-90 transition shadow-md"
             >
               Get Started
-              <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+              <ArrowRight
+                size={16}
+                className="group-hover:translate-x-1 transition-transform"
+              />
             </Link>
           </div>
 

@@ -24,6 +24,7 @@ interface ShoppingItem {
   id: string;
   name: string;
   quantity: number;
+  unit: "kg" | "litre" | "piece" | "packet" | "dozen";
   price: number;
   category: string;
   addedCount?: number;
@@ -61,17 +62,20 @@ export default function Home() {
 
   const totalPrice = useMemo(
     () => items.reduce((sum, item) => sum + item.price * item.quantity, 0),
-    [items]
+    [items],
   );
 
   const groupedItems = useMemo(
     () =>
-      items.reduce((acc, item) => {
-        if (!acc[item.category]) acc[item.category] = [];
-        acc[item.category].push(item);
-        return acc;
-      }, {} as Record<string, ShoppingItem[]>),
-    [items]
+      items.reduce(
+        (acc, item) => {
+          if (!acc[item.category]) acc[item.category] = [];
+          acc[item.category].push(item);
+          return acc;
+        },
+        {} as Record<string, ShoppingItem[]>,
+      ),
+    [items],
   );
 
   const smartSuggestions = useMemo(() => getSmartSuggestions(), [items]);
@@ -87,14 +91,14 @@ export default function Home() {
       prev.map((item) =>
         item.name.toLowerCase() === name.toLowerCase()
           ? { ...item, quantity: Math.max(1, item.quantity + delta) }
-          : item
-      )
+          : item,
+      ),
     );
   };
 
   const handleRemoveItem = (name: string) => {
     setItems((prev) =>
-      prev.filter((i) => i.name.toLowerCase() !== name.toLowerCase())
+      prev.filter((i) => i.name.toLowerCase() !== name.toLowerCase()),
     );
     ToastPremium({ type: "success", message: "Item removed" });
   };
@@ -123,7 +127,7 @@ export default function Home() {
               minPrice: null,
               maxPrice: null,
             },
-            mockProducts
+            mockProducts,
           );
 
           const matchedProduct = searchResult.results[0];
@@ -131,7 +135,7 @@ export default function Home() {
           const category = matchedProduct?.category ?? "Others";
 
           const existingIndex = updatedItems.findIndex(
-            (i) => i.name.toLowerCase() === name.toLowerCase()
+            (i) => i.name.toLowerCase() === name.toLowerCase(),
           );
 
           if (existingIndex !== -1) {
@@ -141,6 +145,7 @@ export default function Home() {
               id: crypto.randomUUID(),
               name,
               quantity,
+              unit: matchedProduct?.unit ?? "piece",
               price,
               category,
               addedCount: 1,
@@ -176,11 +181,9 @@ export default function Home() {
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-black text-gray-900 dark:text-gray-100 transition-colors duration-300">
-
       <Header />
 
       <main className="flex-1 max-w-4xl mx-auto w-full px-4 sm:px-6 pb-28">
-
         {/* HERO */}
         <motion.section
           className="text-center py-14 sm:py-20"
@@ -212,7 +215,10 @@ export default function Home() {
             Add items, search products, and organise your list — hands-free.
           </motion.p>
 
-          <motion.div variants={fadeUp} custom={3}>
+          <motion.div
+            variants={fadeUp}
+            custom={3}
+          >
             <VoiceButton
               onTranscript={handleVoiceCommand}
               isLoading={isLoading}
@@ -221,9 +227,13 @@ export default function Home() {
         </motion.section>
 
         {/* Shopping List */}
-        <motion.div variants={fadeUp} custom={4} initial="hidden" animate="visible">
+        <motion.div
+          variants={fadeUp}
+          custom={4}
+          initial="hidden"
+          animate="visible"
+        >
           <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-sm mb-6">
-
             <div className="flex justify-between items-center px-6 py-4 border-b border-gray-200 dark:border-gray-800">
               <span className="text-xs font-semibold tracking-widest uppercase text-gray-500 dark:text-gray-400">
                 Your List
@@ -240,7 +250,8 @@ export default function Home() {
                 <div className="text-center py-10 text-gray-400">
                   <p className="font-medium mb-2">Nothing here yet</p>
                   <p className="text-sm">
-                    Try saying <span className="text-emerald-500">"Add 2 kg mangoes"</span>
+                    Try saying{" "}
+                    <span className="text-emerald-500">"Add 2 kg mangoes"</span>
                   </p>
                 </div>
               ) : (
@@ -315,7 +326,6 @@ export default function Home() {
             />
           </div>
         </div>
-
       </main>
 
       <Footer />

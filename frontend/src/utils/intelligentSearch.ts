@@ -1,12 +1,4 @@
-export interface Product {
-  id: string;
-  name: string;
-  brand: string;
-  category: string;
-  price: number;
-  unit?: string;
-}
-
+import { Product } from "./mockProduct";
 export interface ParsedCommand {
   action: string;
   items: Array<{

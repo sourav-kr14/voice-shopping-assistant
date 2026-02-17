@@ -7,7 +7,7 @@ interface Item {
   id: string;
   name: string;
   quantity: number;
-  unit: string;
+  unit: "kg" | "litre" | "piece" | "packet" | "dozen";
   price: number;
   category: string;
   addedCount?: number;
@@ -34,14 +34,14 @@ export default function ShoppingList({
         <motion.div
           key={category}
           layout
-          className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100"
+          className="bg-white dark:bg-gray-900 p-8 rounded-3xl shadow-sm border border-gray-200 dark:border-gray-800 transition-colors duration-300"
         >
           {/* Category Header */}
           <div className="flex items-center gap-3 mb-6">
-            <div className="p-2 bg-indigo-50 rounded-xl">
-              <Package className="w-5 h-5 text-indigo-600" />
+            <div className="p-2 bg-indigo-100 dark:bg-indigo-900/40 rounded-xl">
+              <Package className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
             </div>
-            <h3 className="text-sm font-black uppercase tracking-widest text-slate-800">
+            <h3 className="text-sm font-bold uppercase tracking-widest text-gray-800 dark:text-gray-200">
               {category}
             </h3>
           </div>
@@ -58,16 +58,16 @@ export default function ShoppingList({
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.9, x: -20 }}
                     key={item.id}
-                    className="bg-slate-50 p-4 rounded-2xl group hover:bg-white hover:ring-2 hover:ring-indigo-100 transition-all"
+                    className="bg-gray-50 dark:bg-gray-800 p-4 rounded-2xl group hover:bg-white dark:hover:bg-gray-700 hover:ring-2 hover:ring-indigo-100 dark:hover:ring-indigo-500/20 transition-all"
                   >
                     <div className="flex justify-between items-start">
                       {/* Left Section */}
                       <div>
-                        <p className="text-slate-800 font-bold capitalize">
+                        <p className="text-gray-900 dark:text-gray-100 font-semibold capitalize">
                           {item.name}
                         </p>
 
-                        <p className="text-xs text-slate-500 mt-1">
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                           ₹{item.price} per {item.unit}
                         </p>
 
@@ -75,7 +75,7 @@ export default function ShoppingList({
                           key={subtotal}
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
-                          className="text-sm font-semibold text-indigo-600 mt-1"
+                          className="text-sm font-semibold text-indigo-600 dark:text-indigo-400 mt-1"
                         >
                           ₹{subtotal}
                         </motion.p>
@@ -84,25 +84,21 @@ export default function ShoppingList({
                       {/* Right Section */}
                       <div className="flex items-center gap-3">
                         {/* Quantity Controls */}
-                        <div className="flex items-center bg-white border border-slate-200 rounded-xl p-1 shadow-sm">
+                        <div className="flex items-center bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-1 shadow-sm">
                           <button
-                            onClick={() =>
-                              onUpdateQuantity(item.name, -1)
-                            }
-                            className="p-1 hover:text-indigo-600 transition-colors"
+                            onClick={() => onUpdateQuantity(item.name, -1)}
+                            className="p-1 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
                           >
                             <Minus size={14} />
                           </button>
 
-                          <span className="px-3 text-xs font-black text-slate-700 min-w-[24px] text-center">
+                          <span className="px-3 text-xs font-bold text-gray-700 dark:text-gray-200 min-w-[24px] text-center">
                             {item.quantity}
                           </span>
 
                           <button
-                            onClick={() =>
-                              onUpdateQuantity(item.name, 1)
-                            }
-                            className="p-1 hover:text-indigo-600 transition-colors"
+                            onClick={() => onUpdateQuantity(item.name, 1)}
+                            className="p-1 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
                           >
                             <Plus size={14} />
                           </button>
@@ -111,7 +107,7 @@ export default function ShoppingList({
                         {/* Delete Button */}
                         <button
                           onClick={() => onRemove(item.name)}
-                          className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                          className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-all"
                         >
                           <Trash2 size={16} />
                         </button>
