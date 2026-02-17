@@ -69,35 +69,35 @@ const Header = () => {
 
   return (
     <>
-      {/* Background Glow */}
-      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-indigo-500/20 blur-[120px] rounded-full -z-10 animate-pulse" />
+      {/* Soft Background Glow */}
+      <div className="pointer-events-none fixed top-0 left-1/2 -translate-x-1/2 w-[500px] h-[250px] bg-indigo-500/20 blur-[120px] rounded-full -z-10" />
 
       <motion.nav
         animate={{ y: visible ? 0 : -100 }}
         transition={{ duration: 0.3 }}
-        className={`fixed top-0 w-full z-50 transition-all duration-500 ${
+        className={`fixed top-0 w-full z-50 transition-all duration-300 ${
           scrolled
-            ? "backdrop-blur-xl bg-white/70 dark:bg-black/60 border-b border-white/20 shadow-lg shadow-black/5"
+            ? "backdrop-blur-xl bg-white/70 dark:bg-black/70 border-b border-gray-200 dark:border-gray-800 shadow-sm"
             : "bg-transparent"
         }`}
       >
-        <div className="h-[80px] px-6 md:px-16 lg:px-32 flex items-center justify-between">
+        <div className="h-[72px] px-4 sm:px-6 md:px-12 lg:px-24 flex items-center justify-between">
 
           {/* Logo */}
           <Link href="/" className="flex items-center gap-3 group">
             <div className="relative">
-              <div className="absolute inset-0 bg-indigo-500 blur-xl opacity-40 group-hover:opacity-70 transition duration-300 rounded-xl" />
+              <div className="absolute inset-0 bg-indigo-500 blur-xl opacity-40 group-hover:opacity-70 transition rounded-xl" />
               <div className="relative bg-gradient-to-br from-indigo-500 to-purple-600 p-2.5 rounded-xl shadow-lg">
                 <ShoppingBag className="text-white w-5 h-5" />
               </div>
             </div>
-            <span className="text-xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+            <span className="text-xl font-extrabold tracking-tight text-gray-900 dark:text-white">
               SAY<span className="text-indigo-600">SHOP</span>
             </span>
           </Link>
 
           {/* Desktop Navigation */}
-          <ul className="hidden md:flex items-center gap-10 relative">
+          <ul className="hidden md:flex items-center gap-8 relative">
             {navLinks.map((link) => {
               const isActive = pathname === link.href;
 
@@ -105,10 +105,10 @@ const Header = () => {
                 <li key={link.name} className="relative">
                   <Link
                     href={link.href}
-                    className={`text-sm font-semibold transition ${
+                    className={`text-sm font-semibold transition-colors duration-200 ${
                       isActive
                         ? "text-indigo-600"
-                        : "text-slate-600 dark:text-slate-300 hover:text-indigo-500"
+                        : "text-gray-600 dark:text-gray-300 hover:text-indigo-500"
                     }`}
                   >
                     {link.name}
@@ -117,7 +117,7 @@ const Header = () => {
                   {isActive && (
                     <motion.div
                       layoutId="activeNav"
-                      className="absolute -bottom-2 left-0 w-full h-[2px] bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full"
+                      className="absolute -bottom-2 left-0 w-full h-[2px] bg-indigo-600 rounded-full"
                     />
                   )}
                 </li>
@@ -131,31 +131,29 @@ const Header = () => {
             {/* Dark Mode Toggle */}
             <button
               onClick={() => setDark(!dark)}
-              className="p-2 rounded-full bg-slate-100 dark:bg-slate-800"
+              className="p-2 rounded-full bg-gray-100 dark:bg-gray-800 hover:scale-105 transition"
             >
-              {dark ? <Sun size={18} /> : <Moon size={18} />}
+              {dark ? (
+                <Sun size={18} className="text-yellow-400" />
+              ) : (
+                <Moon size={18} className="text-gray-700" />
+              )}
             </button>
 
-            {/* CTA */}
+            {/* CTA Button */}
             <Link
               href="/pricing"
-              className="relative px-6 h-11 rounded-full text-sm font-semibold text-white overflow-hidden group flex items-center"
+              className="flex items-center gap-2 px-5 h-10 rounded-full text-sm font-semibold text-white bg-gradient-to-r from-indigo-500 to-purple-600 hover:opacity-90 transition shadow-md"
             >
-              <span className="absolute inset-0 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500 bg-[length:200%] animate-[shimmer_3s_linear_infinite]" />
-              <span className="relative flex items-center gap-2">
-                Get Started
-                <ArrowRight
-                  size={16}
-                  className="group-hover:translate-x-1 transition-transform"
-                />
-              </span>
+              Get Started
+              <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
             </Link>
           </div>
 
           {/* Mobile Toggle */}
           <button
             onClick={() => setIsOpen(!isOpen)}
-            className="md:hidden text-slate-900 dark:text-white"
+            className="md:hidden text-gray-900 dark:text-white"
           >
             {isOpen ? <X size={28} /> : <Menu size={28} />}
           </button>
@@ -191,12 +189,25 @@ const Header = () => {
               <ul className="flex flex-col gap-8 text-lg font-semibold">
                 {navLinks.map((link) => (
                   <li key={link.name}>
-                    <Link href={link.href} onClick={() => setIsOpen(false)}>
+                    <Link
+                      href={link.href}
+                      onClick={() => setIsOpen(false)}
+                      className="text-gray-800 dark:text-gray-200"
+                    >
                       {link.name}
                     </Link>
                   </li>
                 ))}
               </ul>
+
+              {/* Mobile Dark Toggle */}
+              <button
+                onClick={() => setDark(!dark)}
+                className="mt-auto flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gray-100 dark:bg-gray-800"
+              >
+                {dark ? <Sun size={18} /> : <Moon size={18} />}
+                Toggle Theme
+              </button>
             </motion.div>
           </>
         )}

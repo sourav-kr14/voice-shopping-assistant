@@ -61,7 +61,7 @@ export default function SmartInsights({ frequent, onAdd }: SmartInsightsProps) {
         whileInView={{ opacity: 1, x: 0 }}
         viewport={{ once: true }}
         transition={{ duration: 0.5, ease: "easeOut" }}
-        className="p-8 rounded-[2.5rem] text-white bg-gradient-to-br from-indigo-600 via-indigo-500 to-violet-600 shadow-xl shadow-indigo-100 relative overflow-hidden"
+        className="p-8 rounded-[2.5rem] text-white bg-gradient-to-br from-indigo-600 via-indigo-500 to-violet-600 shadow-xl relative overflow-hidden"
       >
         <h4 className="flex items-center gap-2 font-black mb-6 text-[10px] uppercase tracking-[0.2em]">
           <Sparkles className="w-4 h-4 text-indigo-200" /> Seasonal Picks

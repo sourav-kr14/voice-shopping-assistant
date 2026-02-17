@@ -29,23 +29,22 @@ interface ShoppingItem {
   addedCount?: number;
 }
 
-/* ─── Framer Motion variants ──────────────────────────────────── */
+/* Animations */
 const fadeUp = {
   hidden: { opacity: 0, y: 30 },
   visible: (i: number) => ({
     opacity: 1,
     y: 0,
-    transition: { duration: 0.55, delay: i * 0.12, ease: [0.22, 1, 0.36, 1] },
+    transition: { duration: 0.5, delay: i * 0.1 },
   }),
 };
 
 const scaleIn = {
-  hidden:   { opacity: 0, scale: 0.95 },
-  visible:  { opacity: 1, scale: 1, transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] } },
-  exit:     { opacity: 0, scale: 0.95, transition: { duration: 0.22, ease: "easeIn" } },
+  hidden: { opacity: 0, scale: 0.95 },
+  visible: { opacity: 1, scale: 1 },
+  exit: { opacity: 0, scale: 0.95 },
 };
 
-/* ─── Component ───────────────────────────────────────────────── */
 export default function Home() {
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [searchResults, setSearchResults] = useState<Product[]>([]);
@@ -62,7 +61,7 @@ export default function Home() {
 
   const totalPrice = useMemo(
     () => items.reduce((sum, item) => sum + item.price * item.quantity, 0),
-    [items],
+    [items]
   );
 
   const groupedItems = useMemo(
@@ -72,7 +71,7 @@ export default function Home() {
         acc[item.category].push(item);
         return acc;
       }, {} as Record<string, ShoppingItem[]>),
-    [items],
+    [items]
   );
 
   const smartSuggestions = useMemo(() => getSmartSuggestions(), [items]);
@@ -88,16 +87,16 @@ export default function Home() {
       prev.map((item) =>
         item.name.toLowerCase() === name.toLowerCase()
           ? { ...item, quantity: Math.max(1, item.quantity + delta) }
-          : item,
-      ),
+          : item
+      )
     );
   };
 
   const handleRemoveItem = (name: string) => {
     setItems((prev) =>
-      prev.filter((i) => i.name.toLowerCase() !== name.toLowerCase()),
+      prev.filter((i) => i.name.toLowerCase() !== name.toLowerCase())
     );
-    ToastPremium({ type: "success", message: "Items added successfully" });
+    ToastPremium({ type: "success", message: "Item removed" });
   };
 
   const handleVoiceCommand = async (text: string) => {
@@ -117,54 +116,37 @@ export default function Home() {
         for (const entry of parsedItems) {
           let { name, quantity } = entry;
 
-          const correction = intelligentSearch(
-            { action: "search", items: [{ name, brand: null, category: null }], minPrice: null, maxPrice: null },
-            mockProducts,
-          );
-          if (correction.suggestion && correction.topScore < 3) name = correction.suggestion;
-
           const searchResult = intelligentSearch(
-            { action: "search", items: [{ name, brand: null, category: null }], minPrice: null, maxPrice: null },
-            mockProducts,
+            {
+              action: "search",
+              items: [{ name, brand: null, category: null }],
+              minPrice: null,
+              maxPrice: null,
+            },
+            mockProducts
           );
+
           const matchedProduct = searchResult.results[0];
           const price = matchedProduct?.price ?? 0;
-          let aiCategory = matchedProduct?.category ?? "Others";
-
-          try {
-            const response = await fetch("/api/categorize", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ item: name }),
-            });
-            if (response.ok) {
-              const data = await response.json();
-              aiCategory = data?.category || aiCategory;
-            }
-          } catch (err) {
-            console.error("Categorization failed:", err);
-          }
+          const category = matchedProduct?.category ?? "Others";
 
           const existingIndex = updatedItems.findIndex(
-            (i) => i.name.toLowerCase() === name.toLowerCase(),
+            (i) => i.name.toLowerCase() === name.toLowerCase()
           );
 
           if (existingIndex !== -1) {
-            updatedItems[existingIndex] = {
-              ...updatedItems[existingIndex],
-              quantity: updatedItems[existingIndex].quantity + quantity,
-              addedCount: (updatedItems[existingIndex].addedCount || 0) + 1,
-            };
+            updatedItems[existingIndex].quantity += quantity;
           } else {
             updatedItems.push({
               id: crypto.randomUUID(),
               name,
               quantity,
               price,
-              category: aiCategory,
+              category,
               addedCount: 1,
             });
           }
+
           recordPurchase(name);
         }
 
@@ -176,424 +158,167 @@ export default function Home() {
       }
 
       if (action === "search" && parsedItems?.length) {
-        const searchResponse = intelligentSearch(parsed, mockProducts);
-        let finalResults = searchResponse.results;
-        let finalMessage = "";
-
-        if (
-          (searchResponse.results.length === 0 || searchResponse.topScore < 3) &&
-          searchResponse.suggestion
-        ) {
-          const correctedResponse = intelligentSearch(
-            { ...parsed, items: [{ ...parsed.items[0], name: searchResponse.suggestion }] },
-            mockProducts,
-          );
-          if (correctedResponse.results.length > 0) {
-            finalResults = correctedResponse.results;
-            finalMessage = `Showing results for "${searchResponse.suggestion}"`;
-          }
-        }
-
-        if (!finalMessage) {
-          finalMessage =
-            finalResults.length === 0
-              ? "No products found."
-              : `Found ${finalResults.length} matches`;
-        }
-
-        setSearchResults(finalResults);
-        ToastPremium({ type: "info", message: finalMessage });
-        return;
+        const response = intelligentSearch(parsed, mockProducts);
+        setSearchResults(response.results);
+        ToastPremium({
+          type: "info",
+          message:
+            response.results.length === 0
+              ? "No products found"
+              : `Found ${response.results.length} matches`,
+        });
       }
     } catch (error) {
-      console.error("Voice handler error:", error);
-      ToastPremium({ type: "error", message: "I didn't understand that." });
+      ToastPremium({ type: "error", message: "Something went wrong." });
       setIsLoading(false);
     }
   };
 
-  /* ── Render ─────────────────────────────────────────────────── */
   return (
-    <>
-      <style jsx global>{`
-        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Instrument+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap');
+    <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-black text-gray-900 dark:text-gray-100 transition-colors duration-300">
 
-        :root {
-          --bg:         #07090E;
-          --s1:         #0D1017;
-          --s2:         #131923;
-          --s3:         #1B2333;
-          --border:     rgba(255,255,255,0.06);
-          --border-hi:  rgba(255,255,255,0.12);
-          --em:         #1EE8A0;
-          --em-dim:     rgba(30,232,160,0.08);
-          --em-glow:    rgba(30,232,160,0.22);
-          --em-border:  rgba(30,232,160,0.2);
-          --text:       #E2E8F4;
-          --text-2:     rgba(226,232,244,0.5);
-          --text-3:     rgba(226,232,244,0.25);
-          --r:          16px;
-          --r-lg:       22px;
-        }
+      <Header />
 
-        *, *::before, *::after { box-sizing: border-box; }
-        html { scroll-behavior: smooth; }
+      <main className="flex-1 max-w-4xl mx-auto w-full px-4 sm:px-6 pb-28">
 
-        body {
-          font-family: 'Instrument Sans', sans-serif;
-          background: var(--bg);
-          color: var(--text);
-          -webkit-font-smoothing: antialiased;
-        }
-
-        ::-webkit-scrollbar            { width: 5px; }
-        ::-webkit-scrollbar-track      { background: var(--bg); }
-        ::-webkit-scrollbar-thumb      { background: var(--s3); border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover{ background: rgba(30,232,160,0.15); }
-
-        /* Page */
-        .ps {
-          display: flex;
-          flex-direction: column;
-          min-height: 100vh;
-          background: var(--bg);
-          background-image:
-            radial-gradient(ellipse 75% 45% at 50% -8%, rgba(30,232,160,0.09) 0%, transparent 60%),
-            radial-gradient(ellipse 45% 30% at 90% 95%, rgba(30,232,160,0.05) 0%, transparent 55%);
-        }
-
-        .mc {
-          flex-grow: 1;
-          max-width: 880px;
-          margin: 0 auto;
-          width: 100%;
-          padding: 0 24px 96px;
-        }
-
-        /* Hero */
-        .hero { display:flex; flex-direction:column; align-items:center; text-align:center; padding:76px 0 60px; }
-
-        .hero-tag {
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          font-family: 'Syne', sans-serif;
-          font-size: 10px;
-          font-weight: 700;
-          letter-spacing: 0.22em;
-          text-transform: uppercase;
-          color: var(--em);
-          border: 1px solid var(--em-border);
-          border-radius: 100px;
-          padding: 5px 15px;
-          margin-bottom: 30px;
-          background: var(--em-dim);
-        }
-        .hero-dot {
-          width: 5px; height: 5px;
-          border-radius: 50%;
-          background: var(--em);
-          animation: blink 1.8s ease-in-out infinite;
-        }
-        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.25} }
-
-        .hero-h1 {
-          font-family: 'Syne', sans-serif;
-          font-size: clamp(36px, 5.8vw, 54px);
-          font-weight: 800;
-          line-height: 1.07;
-          letter-spacing: -0.03em;
-          color: var(--text);
-          margin-bottom: 16px;
-          max-width: 540px;
-        }
-        .hero-h1 em { font-style:normal; color: var(--em); }
-
-        .hero-sub {
-          font-size: 15px;
-          font-weight: 300;
-          color: var(--text-2);
-          margin-bottom: 52px;
-          max-width: 340px;
-          line-height: 1.65;
-        }
-
-        /* Voice glow */
-        .vring {
-          position: relative;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-        .vring::before {
-          content: '';
-          position: absolute;
-          inset: -32px;
-          border-radius: 50%;
-          background: radial-gradient(circle, var(--em-glow) 0%, transparent 68%);
-          animation: rpulse 2.8s ease-in-out infinite;
-          pointer-events: none;
-        }
-        @keyframes rpulse { 0%,100%{opacity:.5;transform:scale(1)} 50%{opacity:1;transform:scale(1.1)} }
-
-        /* Loading bar */
-        .ltrack { width:90px; height:2px; background:var(--s3); border-radius:2px; margin-top:26px; overflow:hidden; }
-        .lbar   { height:100%; width:38%; background:var(--em); border-radius:2px; animation:lslide 1s ease-in-out infinite alternate; box-shadow:0 0 8px var(--em); }
-        @keyframes lslide { from{transform:translateX(-100%)} to{transform:translateX(350%)} }
-
-        /* Section cards */
-        .sc {
-          background: var(--s1);
-          border: 1px solid var(--border);
-          border-radius: var(--r-lg);
-          overflow: hidden;
-          margin-bottom: 14px;
-          transition: border-color .25s, box-shadow .25s;
-        }
-        .sc:hover {
-          border-color: var(--border-hi);
-          box-shadow: 0 0 0 1px rgba(30,232,160,0.05), 0 20px 50px rgba(0,0,0,.4);
-        }
-        .sc-head {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 18px 26px;
-          border-bottom: 1px solid var(--border);
-        }
-        .sc-title {
-          font-family: 'Syne', sans-serif;
-          font-size: 11px;
-          font-weight: 700;
-          letter-spacing: 0.16em;
-          text-transform: uppercase;
-          color: var(--text-2);
-        }
-        .sc-pill {
-          font-family: 'Syne', sans-serif;
-          font-size: 10px;
-          font-weight: 700;
-          letter-spacing: 0.08em;
-          color: var(--em);
-          background: var(--em-dim);
-          border: 1px solid var(--em-border);
-          border-radius: 100px;
-          padding: 3px 11px;
-        }
-        .sc-body { padding: 24px 26px; }
-
-        /* Grand total */
-        .total {
-          background: linear-gradient(135deg, var(--s2) 0%, var(--s1) 100%);
-          border: 1px solid var(--em-border);
-          border-radius: var(--r-lg);
-          padding: 26px 32px;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          margin-bottom: 14px;
-          position: relative;
-          overflow: hidden;
-        }
-        .total::after {
-          content: '';
-          position: absolute;
-          top: 0; left: 0; right: 0;
-          height: 1px;
-          background: linear-gradient(90deg, transparent, var(--em), transparent);
-          opacity: 0.7;
-        }
-        .total-label {
-          font-family: 'Syne', sans-serif;
-          font-size: 11px;
-          font-weight: 700;
-          letter-spacing: 0.16em;
-          text-transform: uppercase;
-          color: var(--text-2);
-        }
-        .total-val {
-          font-family: 'Syne', sans-serif;
-          font-size: 32px;
-          font-weight: 800;
-          letter-spacing: -0.03em;
-          color: var(--em);
-          text-shadow: 0 0 28px var(--em-glow);
-        }
-
-        /* Divider */
-        .hrule {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          margin: 30px 0;
-        }
-        .hrule-line { flex:1; height:1px; background: var(--border); }
-        .hrule-gem {
-          width: 7px; height: 7px;
-          border: 1px solid rgba(30,232,160,0.35);
-          border-radius: 1px;
-          transform: rotate(45deg);
-          flex-shrink: 0;
-        }
-
-        /* Empty state */
-        .empty { text-align:center; padding:48px 16px; }
-        .empty-ico   { font-size:30px; margin-bottom:14px; opacity:.25; }
-        .empty-title {
-          font-family: 'Syne', sans-serif;
-          font-size: 15px;
-          font-weight: 600;
-          color: var(--text-3);
-          margin-bottom: 6px;
-        }
-        .empty-hint  { font-size:13px; font-weight:300; color:var(--text-3); }
-        .empty-hint code {
-          background: var(--s3);
-          color: var(--em);
-          padding: 1px 7px;
-          border-radius: 5px;
-          font-size: 12px;
-          font-family: 'SF Mono', 'Fira Code', monospace;
-        }
-      `}</style>
-
-      <div className="ps">
-        <Header />
-
-        <main className="mc">
-
-          {/* Hero */}
-          <motion.section
-            className="hero"
-            initial="hidden"
-            animate="visible"
-            variants={{ visible: { transition: { staggerChildren: 0.1 } } }}
+        {/* HERO */}
+        <motion.section
+          className="text-center py-14 sm:py-20"
+          initial="hidden"
+          animate="visible"
+        >
+          <motion.span
+            variants={fadeUp}
+            custom={0}
+            className="inline-block text-xs font-semibold tracking-widest uppercase px-4 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 mb-6"
           >
-            <motion.div variants={fadeUp} custom={0}>
-              <span className="hero-tag">
-                <span className="hero-dot" />
-                AI Voice Assistant
+            AI Voice Assistant
+          </motion.span>
+
+          <motion.h1
+            variants={fadeUp}
+            custom={1}
+            className="text-3xl sm:text-5xl font-bold leading-tight mb-4"
+          >
+            Shop smarter, <br />
+            <span className="text-emerald-500">just speak.</span>
+          </motion.h1>
+
+          <motion.p
+            variants={fadeUp}
+            custom={2}
+            className="text-gray-500 dark:text-gray-400 max-w-md mx-auto mb-10 text-sm sm:text-base"
+          >
+            Add items, search products, and organise your list — hands-free.
+          </motion.p>
+
+          <motion.div variants={fadeUp} custom={3}>
+            <VoiceButton
+              onTranscript={handleVoiceCommand}
+              isLoading={isLoading}
+            />
+          </motion.div>
+        </motion.section>
+
+        {/* Shopping List */}
+        <motion.div variants={fadeUp} custom={4} initial="hidden" animate="visible">
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-sm mb-6">
+
+            <div className="flex justify-between items-center px-6 py-4 border-b border-gray-200 dark:border-gray-800">
+              <span className="text-xs font-semibold tracking-widest uppercase text-gray-500 dark:text-gray-400">
+                Your List
+              </span>
+              {items.length > 0 && (
+                <span className="text-xs bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 px-3 py-1 rounded-full">
+                  {items.length} item{items.length !== 1 ? "s" : ""}
+                </span>
+              )}
+            </div>
+
+            <div className="p-6">
+              {items.length === 0 ? (
+                <div className="text-center py-10 text-gray-400">
+                  <p className="font-medium mb-2">Nothing here yet</p>
+                  <p className="text-sm">
+                    Try saying <span className="text-emerald-500">"Add 2 kg mangoes"</span>
+                  </p>
+                </div>
+              ) : (
+                <ShoppingList
+                  groupedItems={groupedItems}
+                  onUpdateQuantity={handleUpdateQuantity}
+                  onRemove={handleRemoveItem}
+                />
+              )}
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Grand Total (Mobile Sticky) */}
+        <AnimatePresence>
+          {items.length > 0 && (
+            <motion.div
+              variants={scaleIn}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              className="fixed bottom-0 left-0 right-0 sm:relative sm:mt-4 bg-white dark:bg-gray-900 border-t sm:border border-gray-200 dark:border-gray-800 px-6 py-4 flex justify-between items-center shadow-lg sm:rounded-2xl"
+            >
+              <span className="text-xs uppercase tracking-widest text-gray-500">
+                Grand Total
+              </span>
+              <span className="text-2xl font-bold text-emerald-500">
+                ₹{totalPrice.toFixed(2)}
               </span>
             </motion.div>
+          )}
+        </AnimatePresence>
 
-            <motion.h1 className="hero-h1" variants={fadeUp} custom={1}>
-              Shop smarter,<br /><em>just speak.</em>
-            </motion.h1>
-
-            <motion.p className="hero-sub" variants={fadeUp} custom={2}>
-              Add items, search products, and organise your list — hands‑free, instantly.
-            </motion.p>
-
-            <motion.div className="vring" variants={fadeUp} custom={3}>
-              <VoiceButton onTranscript={handleVoiceCommand} isLoading={isLoading} />
-            </motion.div>
-
-            <AnimatePresence>
-              {isLoading && (
-                <motion.div
-                  className="ltrack"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                >
-                  <div className="lbar" />
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </motion.section>
-
-          {/* Shopping List */}
-          <motion.div variants={fadeUp} custom={4} initial="hidden" animate="visible">
-            <div className="sc">
-              <div className="sc-head">
-                <span className="sc-title">Your List</span>
-                {items.length > 0 && (
-                  <span className="sc-pill">{items.length}&nbsp;item{items.length !== 1 ? "s" : ""}</span>
-                )}
-              </div>
-              <div className="sc-body">
-                {items.length === 0 ? (
-                  <div className="empty">
-                    <div className="empty-ico">🛒</div>
-                    <div className="empty-title">Nothing here yet</div>
-                    <p className="empty-hint">Try saying <code>"Add 2 kg mangoes"</code></p>
-                  </div>
-                ) : (
-                  <ShoppingList
-                    groupedItems={groupedItems}
-                    onUpdateQuantity={handleUpdateQuantity}
-                    onRemove={handleRemoveItem}
-                  />
-                )}
-              </div>
+        {/* Search Results */}
+        {searchResults.length > 0 && (
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-sm mt-8">
+            <div className="flex justify-between items-center px-6 py-4 border-b border-gray-200 dark:border-gray-800">
+              <span className="text-xs uppercase tracking-widest text-gray-500">
+                Search Results
+              </span>
+              <span className="text-xs bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 px-3 py-1 rounded-full">
+                {searchResults.length} found
+              </span>
             </div>
-          </motion.div>
 
-          {/* Grand Total */}
-          <AnimatePresence>
-            {items.length > 0 && (
-              <motion.div
-                className="total"
-                variants={scaleIn}
-                initial="hidden"
-                animate="visible"
-                exit="exit"
-              >
-                <span className="total-label">Grand Total</span>
-                <span className="total-val">₹{totalPrice.toFixed(2)}</span>
-              </motion.div>
-            )}
-          </AnimatePresence>
+            <div className="p-6">
+              <CatalogResults results={searchResults} />
+            </div>
+          </div>
+        )}
 
-          {/* Search Results */}
-          <AnimatePresence>
-            {searchResults.length > 0 && (
-              <motion.div variants={scaleIn} initial="hidden" animate="visible" exit="exit">
-                <div className="sc">
-                  <div className="sc-head">
-                    <span className="sc-title">Search Results</span>
-                    <span className="sc-pill">{searchResults.length}&nbsp;found</span>
-                  </div>
-                  <div className="sc-body">
-                    <CatalogResults results={searchResults} />
-                  </div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Ornamental rule */}
-          <div className="hrule" aria-hidden="true">
-            <div className="hrule-line" />
-            <div className="hrule-gem" />
-            <div className="hrule-line" />
-            <div className="hrule-gem" />
-            <div className="hrule-line" />
+        {/* Smart Suggestions */}
+        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-sm mt-10">
+          <div className="flex justify-between items-center px-6 py-4 border-b border-gray-200 dark:border-gray-800">
+            <span className="text-xs uppercase tracking-widest text-gray-500">
+              Smart Suggestions
+            </span>
+            <span className="text-xs bg-purple-100 dark:bg-purple-900/40 text-purple-600 px-3 py-1 rounded-full">
+              Personalised
+            </span>
           </div>
 
-          {/* Smart Insights */}
-          <motion.div variants={fadeUp} custom={5} initial="hidden" animate="visible">
-            <div className="sc">
-              <div className="sc-head">
-                <span className="sc-title">Smart Suggestions</span>
-                <span className="sc-pill">Personalised</span>
-              </div>
-              <div className="sc-body">
-                <SmartInsights
-                  frequent={items.filter((i) => (i.addedCount || 0) >= 2).map((i) => i.name)}
-                  reorder={smartSuggestions.reorder}
-                  seasonal={smartSuggestions.seasonal}
-                  alsoBought={alsoBought}
-                  onAdd={handleVoiceCommand}
-                />
-              </div>
-            </div>
-          </motion.div>
+          <div className="p-6">
+            <SmartInsights
+              frequent={items
+                .filter((i) => (i.addedCount || 0) >= 2)
+                .map((i) => i.name)}
+              reorder={smartSuggestions.reorder}
+              seasonal={smartSuggestions.seasonal}
+              alsoBought={alsoBought}
+              onAdd={handleVoiceCommand}
+            />
+          </div>
+        </div>
 
-        </main>
+      </main>
 
-        <Footer />
-      </div>
-    </>
+      <Footer />
+    </div>
   );
 }
