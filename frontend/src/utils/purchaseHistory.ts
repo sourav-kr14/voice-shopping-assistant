@@ -48,3 +48,12 @@ export function recordPurchase(item: string) {
 
   savePurchaseHistory(history);
 }
+
+export function getFrequentPurchases(): string[] {
+  const history = getPurchaseHistory();
+
+  return history
+    .filter((entry) => entry.purchaseCount >= 2)
+    .sort((a, b) => b.purchaseCount - a.purchaseCount)
+    .map((entry) => entry.item);
+}

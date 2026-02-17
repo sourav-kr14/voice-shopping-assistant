@@ -65,7 +65,8 @@ export function parseCommand(
     .replace(/(clear|empty cart)/gi, "")
     .replace(/between\s+\$?\d+\s+(and|to)\s+\$?\d+/gi, "")
     .replace(/(under|below|less than|above|more than|over)\s+\$?\d+/gi, "")
-    .replace(/please|me|my|to|the|a|an|cart|list|some|for/gi, "")
+    .replace(/\b(please|me|my|to|the|a|an|cart|list|some|for)\b/gi, "")
+    .replace(/\s+/g, " ")
     .trim();
 
   const parts = cleanedText.split(/\s+and\s+/);

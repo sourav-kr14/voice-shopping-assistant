@@ -45,13 +45,10 @@ export async function POST(req: Request) {
       temperature: 0,
     });
 
-    let category =
-      response.choices[0]?.message?.content?.trim() || "Others";
+    let category = response.choices[0]?.message?.content?.trim() || "Others";
 
-    // 🔥 Clean possible punctuation
     category = category.replace(".", "").trim();
 
-    // 🔥 Ensure it's one of allowed categories
     if (!allowedCategories.includes(category)) {
       category = "Others";
     }
