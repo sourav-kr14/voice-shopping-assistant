@@ -6,6 +6,10 @@ SayShop enables users to manage their shopping basket using natural voice comman
 
 ---
 
+## 🚀 Live Demo 
+- 🔗 https://say-shop.vercel.app/
+
+
 ## 🚀 Features
 
 ### 🎙 Voice-Powered Shopping
@@ -125,6 +129,10 @@ npm run dev
 ## Optional:
 - AI Categorization endpoint (/api/categorize)
 - Can be extended with real product APIs
+## 📸 Screenshots
+
+
+
 
 ## 🛠 Future Enhancements
 - Budget tracking meter
