@@ -10,46 +10,49 @@ import SmartInsights from "@/src/components/home/SmartInsights";
 
 import { parseCommand } from "@/src/utils/commandParser";
 import { mockProducts, Product } from "@/src/utils/mockProduct";
-
+import { intelligentSearch } from "@/src/utils/intelligentSearch";
 import { getSmartSuggestions } from "@/src/utils/smartSuggestions";
-import { getSubstitutes } from "@/src/utils/substitutes";
 import { recordPurchase } from "@/src/utils/purchaseHistory";
 import {
   recordBasket,
   getPeopleAlsoBought,
 } from "@/src/utils/basketIntelligence";
 
+interface ShoppingItem {
+  id: string;
+  name: string;
+  quantity: number;
+  category: string;
+  addedCount?: number;
+}
+
 export default function Home() {
-  const [items, setItems] = useState<any[]>([]);
+  const [items, setItems] = useState<ShoppingItem[]>([]);
   const [searchResults, setSearchResults] = useState<Product[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Local Storage
-
+ 
   useEffect(() => {
     const saved = localStorage.getItem("shopping-items");
-    if (saved) setItems(JSON.parse(saved));
+    if (saved) {
+      setItems(JSON.parse(saved));
+    }
   }, []);
 
+ 
   useEffect(() => {
     localStorage.setItem("shopping-items", JSON.stringify(items));
   }, [items]);
 
-  // Group by Category
-
+ 
   const groupedItems = useMemo(() => {
-    return items.reduce(
-      (acc, item) => {
-        if (!acc[item.category]) acc[item.category] = [];
-        acc[item.category].push(item);
-        return acc;
-      },
-      {} as Record<string, any[]>,
-    );
+    return items.reduce((acc, item) => {
+      if (!acc[item.category]) acc[item.category] = [];
+      acc[item.category].push(item);
+      return acc;
+    }, {} as Record<string, ShoppingItem[]>);
   }, [items]);
-
-  // Smart Suggestions
 
   const smartSuggestions = useMemo(() => {
     return getSmartSuggestions();
@@ -61,51 +64,59 @@ export default function Home() {
     return lastItem ? getPeopleAlsoBought(lastItem) : [];
   }, [items]);
 
-  // Quantity Update
-
   const handleUpdateQuantity = (name: string, delta: number) => {
     setItems((prev) =>
       prev.map((item) =>
         item.name.toLowerCase() === name.toLowerCase()
-          ? {
-              ...item,
-              quantity: Math.max(1, item.quantity + delta),
-            }
-          : item,
-      ),
+          ? { ...item, quantity: Math.max(1, item.quantity + delta) }
+          : item
+      )
     );
   };
 
-  // Remove Item
-
   const handleRemoveItem = (name: string) => {
     setItems((prev) =>
-      prev.filter((i) => i.name.toLowerCase() !== name.toLowerCase()),
+      prev.filter((i) => i.name.toLowerCase() !== name.toLowerCase())
     );
     setMessage(`Removed ${name}`);
   };
 
-  // Voice Command Handler
-
   const handleVoiceCommand = async (text: string) => {
     try {
-      const parsed = parseCommand(text);
-
+      const parsed = parseCommand(text, mockProducts);
       if (!parsed) {
         setMessage("I didn't understand that.");
         return;
       }
 
-      const { action, items: parsedItems, maxPrice } = parsed;
+      const { action, items: parsedItems } = parsed;
 
       switch (action) {
+        
         case "add":
-          if (!parsedItems || parsedItems.length === 0) return;
-
+          if (!parsedItems?.length) return;
           setIsLoading(true);
 
           for (const entry of parsedItems) {
-            const { item, quantity } = entry;
+            let { name, quantity } = entry;
+
+            
+            const correctionResponse = intelligentSearch(
+              {
+                action: "search",
+                items: [{ name, brand: null, category: null }],
+                minPrice: null,
+                maxPrice: null,
+              },
+              mockProducts
+            );
+
+            if (
+              correctionResponse.suggestion &&
+              correctionResponse.topScore < 3
+            ) {
+              name = correctionResponse.suggestion;
+            }
 
             let aiCategory = "Others";
 
@@ -113,7 +124,7 @@ export default function Home() {
               const response = await fetch("/api/categorize", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ item }),
+                body: JSON.stringify({ item: name }),
               });
 
               if (response.ok) {
@@ -126,27 +137,27 @@ export default function Home() {
 
             setItems((prev) => {
               const existing = prev.find(
-                (i) => i.name.toLowerCase() === item.toLowerCase(),
+                (i) => i.name.toLowerCase() === name.toLowerCase()
               );
 
-              let updated;
+              let updated: ShoppingItem[];
 
               if (existing) {
                 updated = prev.map((i) =>
-                  i.name.toLowerCase() === item.toLowerCase()
+                  i.name.toLowerCase() === name.toLowerCase()
                     ? {
                         ...i,
                         quantity: i.quantity + quantity,
                         addedCount: (i.addedCount || 0) + 1,
                       }
-                    : i,
+                    : i
                 );
               } else {
                 updated = [
                   ...prev,
                   {
                     id: crypto.randomUUID(),
-                    name: item,
+                    name,
                     quantity,
                     category: aiCategory,
                     addedCount: 1,
@@ -155,62 +166,61 @@ export default function Home() {
               }
 
               recordBasket(updated.map((i) => i.name));
-
               return updated;
             });
 
-            recordPurchase(item);
+            recordPurchase(name);
           }
 
           setMessage("Items added successfully.");
           setIsLoading(false);
           break;
 
-        case "remove":
-          if (!parsedItems || parsedItems.length === 0) return;
-
-          setItems((prev) =>
-            prev.filter(
-              (i) =>
-                !parsedItems.some(
-                  (entry) => entry.item.toLowerCase() === i.name.toLowerCase(),
-                ),
-            ),
-          );
-
-          setMessage("Items removed.");
-          break;
-
-        // SEARCH
-
+        
         case "search":
-          if (!parsedItems || parsedItems.length === 0) return;
+          if (!parsedItems?.length) return;
 
-          const searchTerm = parsedItems[0].item;
+          const searchResponse = intelligentSearch(parsed, mockProducts);
 
-          let results = mockProducts.filter((p) =>
-            p.name.toLowerCase().includes(searchTerm.toLowerCase()),
-          );
+          let finalResults = searchResponse.results;
+          let finalMessage = "";
 
-          if (maxPrice) {
-            results = results.filter((p) => p.price <= maxPrice);
-          }
+   
+          if (
+            (searchResponse.results.length === 0 ||
+              searchResponse.topScore < 3) &&
+            searchResponse.suggestion
+          ) {
+            const correctedParsed = {
+              ...parsed,
+              items: [
+                {
+                  ...parsed.items[0],
+                  name: searchResponse.suggestion!,
+                },
+              ],
+            };
 
-          if (results.length === 0) {
-            const alternatives = getSubstitutes(searchTerm);
+            const correctedResponse = intelligentSearch(
+              correctedParsed,
+              mockProducts
+            );
 
-            if (alternatives.length > 0) {
-              setMessage(
-                `No exact match. You may try: ${alternatives.join(", ")}`,
-              );
-            } else {
-              setMessage(`No products found for ${searchTerm}`);
+            if (correctedResponse.results.length > 0) {
+              finalResults = correctedResponse.results;
+              finalMessage = `Showing results for "${searchResponse.suggestion}" (auto-corrected)`;
             }
-          } else {
-            setMessage(`Found ${results.length} matches`);
           }
 
-          setSearchResults(results);
+          if (!finalMessage) {
+            finalMessage =
+              finalResults.length === 0
+                ? "No products found."
+                : `Found ${finalResults.length} matches`;
+          }
+
+          setSearchResults(finalResults);
+          setMessage(finalMessage);
           break;
 
         default:
@@ -221,10 +231,6 @@ export default function Home() {
       setMessage("Assistant encountered an error.");
       setIsLoading(false);
     }
-  };
-
-  const handleAddSuggestion = (text: string) => {
-    handleVoiceCommand(text);
   };
 
   return (
@@ -251,11 +257,13 @@ export default function Home() {
           reorder={smartSuggestions.reorder}
           seasonal={smartSuggestions.seasonal}
           alsoBought={alsoBought}
-          onAdd={handleAddSuggestion}
+          onAdd={handleVoiceCommand}
         />
 
         {message && (
-          <div className="text-center text-sm text-gray-600">{message}</div>
+          <div className="text-center text-sm text-gray-600">
+            {message}
+          </div>
         )}
       </main>
 

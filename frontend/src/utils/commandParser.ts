@@ -1,8 +1,11 @@
 export type CommandAction = "add" | "remove" | "search" | "clear" | "unknown";
 
 export interface ParsedItem {
-  item: string;
+  name: string;
   quantity: number;
+  unit: string | null;
+  brand: string | null;
+  category: string | null;
 }
 
 export interface ParsedCommand {
@@ -12,11 +15,19 @@ export interface ParsedCommand {
   maxPrice: number | null;
 }
 
-export function parseCommand(input: string): ParsedCommand {
+interface Product {
+  name: string;
+  brand: string;
+  category: string;
+}
+
+export function parseCommand(
+  input: string,
+  products: Product[],
+): ParsedCommand {
   const text = input.toLowerCase().trim();
 
   let action: CommandAction = "unknown";
-
 
   if (/(add|buy|need|want|put|get)/i.test(text)) {
     action = "add";
@@ -31,32 +42,22 @@ export function parseCommand(input: string): ParsedCommand {
   let minPrice: number | null = null;
   let maxPrice: number | null = null;
 
-
-  const betweenMatch = text.match(
-    /between\s+\$?(\d+)\s+(and|to)\s+\$?(\d+)/
-  );
+  const betweenMatch = text.match(/between\s+\$?(\d+)\s+(and|to)\s+\$?(\d+)/);
   if (betweenMatch) {
     minPrice = parseInt(betweenMatch[1], 10);
     maxPrice = parseInt(betweenMatch[3], 10);
   }
 
-
-  const underMatch = text.match(
-    /(under|below|less than)\s+\$?(\d+)/
-  );
+  const underMatch = text.match(/(under|below|less than)\s+\$?(\d+)/);
   if (underMatch) {
     maxPrice = parseInt(underMatch[2], 10);
   }
 
-
-  const aboveMatch = text.match(
-    /(above|more than|over)\s+\$?(\d+)/
-  );
+  const aboveMatch = text.match(/(above|more than|over)\s+\$?(\d+)/);
   if (aboveMatch) {
     minPrice = parseInt(aboveMatch[2], 10);
   }
 
-  
   let cleanedText = text
     .replace(/(add|buy|need|want|put|get)/gi, "")
     .replace(/(remove|delete|take out)/gi, "")
@@ -64,27 +65,65 @@ export function parseCommand(input: string): ParsedCommand {
     .replace(/(clear|empty cart)/gi, "")
     .replace(/between\s+\$?\d+\s+(and|to)\s+\$?\d+/gi, "")
     .replace(/(under|below|less than|above|more than|over)\s+\$?\d+/gi, "")
-    .replace(/please|me|my|to|the|a|an|cart|list|some/gi, "")
+    .replace(/please|me|my|to|the|a|an|cart|list|some|for/gi, "")
     .trim();
 
- 
   const parts = cleanedText.split(/\s+and\s+/);
 
   const items: ParsedItem[] = [];
 
-  for (const part of parts) {
-    const quantityMatch = part.match(/\b\d+\b/);
-    const quantity = quantityMatch ? parseInt(quantityMatch[0], 10) : 1;
+  const brands = new Set(products.map((p) => p.brand.toLowerCase()));
+  const categories = new Set(products.map((p) => p.category.toLowerCase()));
 
-    const itemName = part
+  for (const part of parts) {
+    let quantity = 1;
+    let unit: string | null = null;
+    let brand: string | null = null;
+    let category: string | null = null;
+
+    const quantityMatch = part.match(/\b\d+\b/);
+    if (quantityMatch) {
+      quantity = parseInt(quantityMatch[0], 10);
+    }
+
+    const unitMatch = part.match(
+      /\b(kg|kilo|litre|liter|ml|gram|g|packet|pack|bottle|pieces?)\b/,
+    );
+    if (unitMatch) {
+      unit = unitMatch[1];
+    }
+
+    let itemName = part
       .replace(/\b\d+\b/g, "")
-      .replace(/kg|kilo|litre|liter|packet|packets|bottle|bottles|pieces?|of/gi, "")
+      .replace(
+        /\b(kg|kilo|litre|liter|ml|gram|g|packet|pack|bottle|pieces?)\b/gi,
+        "",
+      )
       .trim();
+
+    for (const b of brands) {
+      if (itemName.includes(b)) {
+        brand = b;
+        itemName = itemName.replace(b, "").trim();
+        break;
+      }
+    }
+
+    for (const c of categories) {
+      if (itemName.includes(c)) {
+        category = c;
+        itemName = itemName.replace(c, "").trim();
+        break;
+      }
+    }
 
     if (itemName) {
       items.push({
-        item: itemName,
+        name: itemName,
         quantity,
+        unit,
+        brand,
+        category,
       });
     }
   }

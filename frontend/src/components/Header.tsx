@@ -36,7 +36,7 @@ const Header = () => {
           <ShoppingBag className="text-white w-5 h-5" />
         </div>
         <span className="text-xl font-black tracking-tighter text-slate-900">
-          VOICE<span className="text-indigo-600">CART</span>
+          SAY<span className="text-indigo-600">SHOP</span>
         </span>
       </a>
 
