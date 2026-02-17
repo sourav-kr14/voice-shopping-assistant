@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
 
+//added basic categories to classify the products
 const allowedCategories = [
   "Dairy",
   "Produce",
@@ -12,6 +13,7 @@ const allowedCategories = [
   "Others",
 ];
 
+//use of open ai to add,search and classify products
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
@@ -48,7 +50,7 @@ export async function POST(req: Request) {
     let category = response.choices[0]?.message?.content?.trim() || "Others";
 
     category = category.replace(".", "").trim();
-
+    //if no category found include it in others
     if (!allowedCategories.includes(category)) {
       category = "Others";
     }

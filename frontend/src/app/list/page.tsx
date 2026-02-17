@@ -11,11 +11,10 @@ export default function ListPage() {
   ]);
 
   const total = items.reduce((sum, item) => sum + item.price, 0);
-
+  //basic page with few items
   return (
     <div className="min-h-screen pt-28 px-4 sm:px-6 md:px-20 bg-gray-50 dark:bg-black transition-colors duration-300">
-
-      {/* Back Button */}
+      {/* Back Button to navigate back to the main page */}
       <div className="mb-8">
         <Link
           href="/"
@@ -47,7 +46,7 @@ export default function ListPage() {
         ))}
       </div>
 
-      {/* Total */}
+      {/* Total Price*/}
       <div className="mt-10 text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">
         Total: <span className="text-emerald-600">₹{total}</span>
       </div>

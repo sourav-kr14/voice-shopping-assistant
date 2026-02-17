@@ -20,7 +20,7 @@ interface Product {
   brand: string;
   category: string;
 }
-
+//filtartion logic to clearly get the voice from user
 export function parseCommand(
   input: string,
   products: Product[],
@@ -57,7 +57,7 @@ export function parseCommand(
   if (aboveMatch) {
     minPrice = parseInt(aboveMatch[2], 10);
   }
-
+  //clean and remove unnecessary words
   let cleanedText = text
     .replace(/(add|buy|need|want|put|get)/gi, "")
     .replace(/(remove|delete|take out)/gi, "")

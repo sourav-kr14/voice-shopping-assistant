@@ -16,7 +16,6 @@ function saveBasketMap(map: BasketMap) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
 }
 
-
 export function recordBasket(items: string[]) {
   const map = getBasketMap();
 
@@ -37,7 +36,7 @@ export function recordBasket(items: string[]) {
   saveBasketMap(map);
 }
 
-
+//logic to get similar items people bought
 export function getPeopleAlsoBought(item: string): string[] {
   const map = getBasketMap();
   const related = map[item.toLowerCase()] || {};

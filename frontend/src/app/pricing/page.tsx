@@ -7,7 +7,7 @@ export default function PricingPage() {
   return (
     <div className="min-h-screen pt-28 px-4 sm:px-6 md:px-20 bg-gray-50 dark:bg-black transition-colors duration-300">
 
-      {/* Back Button */}
+      {/* Back Button  to navigate back to the main page*/}
       <div className="mb-10">
         <Link
           href="/"
@@ -53,7 +53,7 @@ export default function PricingPage() {
           </button>
         </div>
 
-        {/* PRO PLAN (Highlighted) */}
+        {/* PRO PLAN  */}
         <div className="p-8 rounded-2xl border border-indigo-500 bg-indigo-600 text-white shadow-xl scale-100 md:scale-105 flex flex-col justify-between relative">
 
           <div className="absolute top-4 right-4 bg-white text-indigo-600 text-xs font-bold px-3 py-1 rounded-full">

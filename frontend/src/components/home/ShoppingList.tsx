@@ -36,7 +36,6 @@ export default function ShoppingList({
           layout
           className="bg-white dark:bg-gray-900 p-8 rounded-3xl shadow-sm border border-gray-200 dark:border-gray-800 transition-colors duration-300"
         >
-          {/* Category Header */}
           <div className="flex items-center gap-3 mb-6">
             <div className="p-2 bg-indigo-100 dark:bg-indigo-900/40 rounded-xl">
               <Package className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
@@ -61,7 +60,6 @@ export default function ShoppingList({
                     className="bg-gray-50 dark:bg-gray-800 p-4 rounded-2xl group hover:bg-white dark:hover:bg-gray-700 hover:ring-2 hover:ring-indigo-100 dark:hover:ring-indigo-500/20 transition-all"
                   >
                     <div className="flex justify-between items-start">
-                      {/* Left Section */}
                       <div>
                         <p className="text-gray-900 dark:text-gray-100 font-semibold capitalize">
                           {item.name}
@@ -70,7 +68,7 @@ export default function ShoppingList({
                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                           ₹{item.price} per {item.unit}
                         </p>
-
+                        {/* Grand Total */}
                         <motion.p
                           key={subtotal}
                           initial={{ opacity: 0 }}
@@ -81,9 +79,7 @@ export default function ShoppingList({
                         </motion.p>
                       </div>
 
-                      {/* Right Section */}
                       <div className="flex items-center gap-3">
-                        {/* Quantity Controls */}
                         <div className="flex items-center bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-1 shadow-sm">
                           <button
                             onClick={() => onUpdateQuantity(item.name, -1)}
@@ -95,7 +91,7 @@ export default function ShoppingList({
                           <span className="px-3 text-xs font-bold text-gray-700 dark:text-gray-200 min-w-[24px] text-center">
                             {item.quantity}
                           </span>
-
+                          {/* Increase Quantity */}
                           <button
                             onClick={() => onUpdateQuantity(item.name, 1)}
                             className="p-1 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"

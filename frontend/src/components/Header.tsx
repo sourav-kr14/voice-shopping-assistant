@@ -40,7 +40,7 @@ const Header = () => {
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
-  /* Persistent Dark Mode */
+  //Dark Mode
   useEffect(() => {
     const saved = localStorage.getItem("theme");
 
@@ -78,7 +78,6 @@ const Header = () => {
 
   return (
     <>
-      {/* Soft Background Glow */}
       <div className="pointer-events-none fixed top-0 left-1/2 -translate-x-1/2 w-[500px] h-[250px] bg-indigo-500/20 blur-[120px] rounded-full -z-10" />
 
       <motion.nav
@@ -139,7 +138,6 @@ const Header = () => {
             })}
           </ul>
 
-          {/* Right Controls */}
           <div className="hidden md:flex items-center gap-4">
             {/* Dark Mode Toggle */}
             <button
@@ -159,7 +157,6 @@ const Header = () => {
               )}
             </button>
 
-            {/* CTA Button */}
             <Link
               href="/pricing"
               className="flex items-center gap-2 px-5 h-10 rounded-full text-sm font-semibold text-white bg-gradient-to-r from-indigo-500 to-purple-600 hover:opacity-90 transition shadow-md"

@@ -14,12 +14,11 @@ export default function SearchPage() {
   const [query, setQuery] = useState("");
 
   const filtered = products.filter((p) =>
-    p.name.toLowerCase().includes(query.toLowerCase())
+    p.name.toLowerCase().includes(query.toLowerCase()),
   );
-
+  //basic search page to search the items entered by user
   return (
     <div className="min-h-screen pt-28 px-4 sm:px-6 md:px-20 bg-gray-50 dark:bg-black transition-colors duration-300">
-
       {/* Back Button */}
       <div className="mb-8">
         <Link

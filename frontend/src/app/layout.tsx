@@ -13,6 +13,7 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+//Icon and App Name 
 export const metadata: Metadata = {
   title: "Say Shop",
   description: "AI powered voice shopping cart",

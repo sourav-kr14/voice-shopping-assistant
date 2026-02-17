@@ -11,7 +11,7 @@ interface SmartInsightsProps {
   alsoBought: string[];
   onAdd: (item: string) => void;
 }
-
+//basic structure according to months
 export default function SmartInsights({ frequent, onAdd }: SmartInsightsProps) {
   const seasonalPicks = useMemo(() => {
     const month = new Date().getMonth();
@@ -25,7 +25,6 @@ export default function SmartInsights({ frequent, onAdd }: SmartInsightsProps) {
 
   return (
     <section className="grid md:grid-cols-2 gap-8 pt-10">
-
       {/* Often Purchased */}
       <motion.div
         initial={{ opacity: 0, x: -30 }}
@@ -86,18 +85,18 @@ export default function SmartInsights({ frequent, onAdd }: SmartInsightsProps) {
             </motion.button>
           ))}
         </div>
+        {/* To get month and suggest accordingly */}
 
         <div className="mt-6 flex items-center gap-2 text-[10px] font-semibold text-indigo-100/80 uppercase tracking-tight">
           <Calendar size={12} />
           <span>
             Refreshed for{" "}
             {new Intl.DateTimeFormat("en-US", { month: "long" }).format(
-              new Date()
+              new Date(),
             )}
           </span>
         </div>
       </motion.div>
-
     </section>
   );
 }

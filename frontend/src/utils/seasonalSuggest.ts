@@ -4,6 +4,8 @@ const seasonalProducts: Record<string, string[]> = {
   monsoon: ["corn", "ginger"],
 };
 
+//Get current month and predict required food items
+
 function getCurrentSeason(): string {
   const month = new Date().getMonth() + 1;
 

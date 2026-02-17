@@ -88,11 +88,12 @@ export default function VoiceButton({
 
   return (
     <div className="flex flex-col items-center gap-6">
-
-      {/* Language Selector */}
+      {/* Suppport Multillingial */}
       <div className="flex items-center gap-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-3 py-2 rounded-xl shadow-sm">
-
-        <Globe size={14} className="text-gray-500 dark:text-gray-400" />
+        <Globe
+          size={14}
+          className="text-gray-500 dark:text-gray-400"
+        />
 
         <select
           value={language}
@@ -100,7 +101,10 @@ export default function VoiceButton({
           className="bg-transparent text-sm outline-none text-gray-700 dark:text-gray-200 cursor-pointer"
         >
           {supportedLanguages.map((lang) => (
-            <option key={lang.code} value={lang.code}>
+            <option
+              key={lang.code}
+              value={lang.code}
+            >
               {lang.label}
             </option>
           ))}
@@ -126,7 +130,10 @@ export default function VoiceButton({
       >
         {isListening ? (
           <>
-            <Square size={18} fill="white" />
+            <Square
+              size={18}
+              fill="white"
+            />
             Listening...
           </>
         ) : (

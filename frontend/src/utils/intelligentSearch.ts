@@ -56,13 +56,13 @@ function similarity(a: string, b: string): number {
   const sA = a.toLowerCase().trim();
   const sB = b.toLowerCase().trim();
   
-  // High Priority: Substring or Exact Match
+ 
   if (sA === sB || sB.includes(sA) || sA.includes(sB)) return 1.0;
   
-  // Medium Priority: Stemmed (Plural) Match
+ 
   if (stem(sA) === stem(sB)) return 0.95;
 
-  // Low Priority: Fuzzy Levenshtein
+ 
   const distance = levenshtein(sA, sB);
   const maxLen = Math.max(sA.length, sB.length);
   return maxLen === 0 ? 1 : 1 - distance / maxLen;
@@ -81,8 +81,8 @@ export function intelligentSearch(
     for (const item of parsedCommand.items) {
       const sim = similarity(item.name, productName);
 
-      if (sim === 1.0) score += 10;    // Absolute Match
-      else if (sim >= 0.9) score += 8; // Plural Match
+      if (sim === 1.0) score += 10;    
+      else if (sim >= 0.9) score += 8; 
       else if (sim > 0.4) score += sim * 5;
 
       if (item.brand && product.brand.toLowerCase().includes(item.brand.toLowerCase())) {

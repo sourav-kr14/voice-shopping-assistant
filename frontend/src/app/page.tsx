@@ -30,7 +30,6 @@ interface ShoppingItem {
   addedCount?: number;
 }
 
-/* Animations */
 const fadeUp = {
   hidden: { opacity: 0, y: 30 },
   visible: (i: number) => ({
@@ -59,7 +58,7 @@ export default function Home() {
   useEffect(() => {
     localStorage.setItem("shopping-items", JSON.stringify(items));
   }, [items]);
-
+  //calculate total price
   const totalPrice = useMemo(
     () => items.reduce((sum, item) => sum + item.price * item.quantity, 0),
     [items],
@@ -79,13 +78,13 @@ export default function Home() {
   );
 
   const smartSuggestions = useMemo(() => getSmartSuggestions(), [items]);
-
+  //frequently bought logic
   const alsoBought = useMemo(() => {
     if (!items.length) return [];
     const lastItem = items[items.length - 1]?.name;
     return lastItem ? getPeopleAlsoBought(lastItem) : [];
   }, [items]);
-
+  //handler to update quantity
   const handleUpdateQuantity = (name: string, delta: number) => {
     setItems((prev) =>
       prev.map((item) =>
@@ -95,14 +94,14 @@ export default function Home() {
       ),
     );
   };
-
+  //handler to remove item
   const handleRemoveItem = (name: string) => {
     setItems((prev) =>
       prev.filter((i) => i.name.toLowerCase() !== name.toLowerCase()),
     );
     ToastPremium({ type: "success", message: "Item removed" });
   };
-
+  //handler for mic to add or update items
   const handleVoiceCommand = async (text: string) => {
     try {
       const parsed = parseCommand(text, mockProducts);
@@ -161,7 +160,7 @@ export default function Home() {
         setIsLoading(false);
         return;
       }
-
+      //search items
       if (action === "search" && parsedItems?.length) {
         const response = intelligentSearch(parsed, mockProducts);
         setSearchResults(response.results);
@@ -184,7 +183,6 @@ export default function Home() {
       <Header />
 
       <main className="flex-1 max-w-4xl mx-auto w-full px-4 sm:px-6 pb-28">
-        {/* HERO */}
         <motion.section
           className="text-center py-14 sm:py-20"
           initial="hidden"
@@ -219,6 +217,7 @@ export default function Home() {
             variants={fadeUp}
             custom={3}
           >
+            {/* Mic Button */}
             <VoiceButton
               onTranscript={handleVoiceCommand}
               isLoading={isLoading}
@@ -265,7 +264,7 @@ export default function Home() {
           </div>
         </motion.div>
 
-        {/* Grand Total (Mobile Sticky) */}
+        {/* Grand Total */}
         <AnimatePresence>
           {items.length > 0 && (
             <motion.div

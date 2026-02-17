@@ -6,7 +6,7 @@ export interface Product {
   category: string;
   unit: "kg" | "litre" | "piece" | "packet" | "dozen";
 }
-
+//Basic Structure for Project section
 export const mockProducts: Product[] = [
   {
     id: "1",
