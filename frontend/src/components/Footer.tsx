@@ -56,7 +56,7 @@ const Footer = () => {
 
       <div className="border-t border-slate-100 py-8 text-center">
         <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-          © {new Date().getFullYear()} VoiceCart AI Assistant. All Rights Reserved.
+          © {new Date().getFullYear()} SayShop AI Assistant. All Rights Reserved.
         </p>
       </div>
     </footer>
