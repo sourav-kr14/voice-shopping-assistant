@@ -1,12 +1,15 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+
 import Header from "@/src/components/Header";
 import Footer from "@/src/components/Footer";
 import VoiceButton from "@/src/components/home/VoiceButton";
 import ShoppingList from "@/src/components/home/ShoppingList";
 import CatalogResults from "@/src/components/home/CatalogResults";
-
+import SmartInsights from "@/src/components/home/SmartInsightsSection";
+import { ToastPremium } from "../components/ui/ToastPremium";
 import { parseCommand } from "@/src/utils/commandParser";
 import { mockProducts, Product } from "@/src/utils/mockProduct";
 import { intelligentSearch } from "@/src/utils/intelligentSearch";
@@ -16,52 +19,66 @@ import {
   recordBasket,
   getPeopleAlsoBought,
 } from "@/src/utils/basketIntelligence";
-import SmartInsights from "../components/home/SmartInsightsSection";
+
 interface ShoppingItem {
   id: string;
   name: string;
   quantity: number;
+  price: number;
   category: string;
   addedCount?: number;
 }
-import { ToastPremium } from "../components/ui/ToastPremium";
 
+/* ─── Framer Motion variants ──────────────────────────────────── */
+const fadeUp = {
+  hidden: { opacity: 0, y: 30 },
+  visible: (i: number) => ({
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.55, delay: i * 0.12, ease: [0.22, 1, 0.36, 1] },
+  }),
+};
+
+const scaleIn = {
+  hidden:   { opacity: 0, scale: 0.95 },
+  visible:  { opacity: 1, scale: 1, transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] } },
+  exit:     { opacity: 0, scale: 0.95, transition: { duration: 0.22, ease: "easeIn" } },
+};
+
+/* ─── Component ───────────────────────────────────────────────── */
 export default function Home() {
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [searchResults, setSearchResults] = useState<Product[]>([]);
-  const [message, setMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
     const saved = localStorage.getItem("shopping-items");
-    if (saved) {
-      setItems(JSON.parse(saved));
-    }
+    if (saved) setItems(JSON.parse(saved));
   }, []);
 
   useEffect(() => {
     localStorage.setItem("shopping-items", JSON.stringify(items));
   }, [items]);
 
-  const groupedItems = useMemo(() => {
-    return items.reduce(
-      (acc, item) => {
+  const totalPrice = useMemo(
+    () => items.reduce((sum, item) => sum + item.price * item.quantity, 0),
+    [items],
+  );
+
+  const groupedItems = useMemo(
+    () =>
+      items.reduce((acc, item) => {
         if (!acc[item.category]) acc[item.category] = [];
         acc[item.category].push(item);
         return acc;
-      },
-      {} as Record<string, ShoppingItem[]>,
-    );
-  }, [items]);
+      }, {} as Record<string, ShoppingItem[]>),
+    [items],
+  );
 
-  const smartSuggestions = useMemo(() => {
-    return getSmartSuggestions();
-  }, [items]);
+  const smartSuggestions = useMemo(() => getSmartSuggestions(), [items]);
 
   const alsoBought = useMemo(() => {
-    if (items.length === 0) return [];
+    if (!items.length) return [];
     const lastItem = items[items.length - 1]?.name;
     return lastItem ? getPeopleAlsoBought(lastItem) : [];
   }, [items]);
@@ -80,477 +97,426 @@ export default function Home() {
     setItems((prev) =>
       prev.filter((i) => i.name.toLowerCase() !== name.toLowerCase()),
     );
-
-    ToastPremium({
-      type: "error",
-      message: `${name} removed from cart`,
-    });
-
-    setMessage(`Removed ${name}`);
+    ToastPremium({ type: "success", message: "Items added successfully" });
   };
 
   const handleVoiceCommand = async (text: string) => {
     try {
       const parsed = parseCommand(text, mockProducts);
       if (!parsed) {
-        setMessage("I didn't understand that.");
+        ToastPremium({ type: "error", message: "I didn't understand that." });
         return;
       }
 
       const { action, items: parsedItems } = parsed;
 
-      switch (action) {
-        case "add":
-          if (!parsedItems?.length) return;
-          setIsLoading(true);
+      if (action === "add" && parsedItems?.length) {
+        setIsLoading(true);
+        const updatedItems = [...items];
 
-          const addedNames: string[] = [];
+        for (const entry of parsedItems) {
+          let { name, quantity } = entry;
 
-          for (const entry of parsedItems) {
-            let { name, quantity } = entry;
+          const correction = intelligentSearch(
+            { action: "search", items: [{ name, brand: null, category: null }], minPrice: null, maxPrice: null },
+            mockProducts,
+          );
+          if (correction.suggestion && correction.topScore < 3) name = correction.suggestion;
 
-            const correctionResponse = intelligentSearch(
-              {
-                action: "search",
-                items: [{ name, brand: null, category: null }],
-                minPrice: null,
-                maxPrice: null,
-              },
-              mockProducts,
-            );
+          const searchResult = intelligentSearch(
+            { action: "search", items: [{ name, brand: null, category: null }], minPrice: null, maxPrice: null },
+            mockProducts,
+          );
+          const matchedProduct = searchResult.results[0];
+          const price = matchedProduct?.price ?? 0;
+          let aiCategory = matchedProduct?.category ?? "Others";
 
-            if (
-              correctionResponse.suggestion &&
-              correctionResponse.topScore < 3
-            ) {
-              name = correctionResponse.suggestion;
-            }
-
-            let aiCategory = "Others";
-
-            try {
-              const response = await fetch("/api/categorize", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ item: name }),
-              });
-
-              if (response.ok) {
-                const data = await response.json();
-                aiCategory = data?.category || "Others";
-              }
-            } catch {
-              console.error("AI Categorization failed");
-            }
-
-            setItems((prev) => {
-              const existing = prev.find(
-                (i) => i.name.toLowerCase() === name.toLowerCase(),
-              );
-
-              let updated: ShoppingItem[];
-
-              if (existing) {
-                updated = prev.map((i) =>
-                  i.name.toLowerCase() === name.toLowerCase()
-                    ? {
-                        ...i,
-                        quantity: i.quantity + quantity,
-                        addedCount: (i.addedCount || 0) + 1,
-                      }
-                    : i,
-                );
-              } else {
-                updated = [
-                  ...prev,
-                  {
-                    id: crypto.randomUUID(),
-                    name,
-                    quantity,
-                    category: aiCategory,
-                    addedCount: 1,
-                  },
-                ];
-              }
-
-              recordBasket(updated.map((i) => i.name));
-              return updated;
+          try {
+            const response = await fetch("/api/categorize", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ item: name }),
             });
-
-            recordPurchase(name);
-            addedNames.push(name);
-          }
-
-          ToastPremium({
-            type: "success",
-            message:
-              addedNames.length === 1
-                ? `${addedNames[0]} added to cart`
-                : `${addedNames.length} items added to cart`,
-          });
-
-          // setMessage("Items added successfully.");
-          setIsLoading(false);
-          break;
-
-        case "search":
-          if (!parsedItems?.length) return;
-
-          const searchResponse = intelligentSearch(parsed, mockProducts);
-
-          let finalResults = searchResponse.results;
-          let finalMessage = "";
-
-          if (
-            (searchResponse.results.length === 0 ||
-              searchResponse.topScore < 3) &&
-            searchResponse.suggestion
-          ) {
-            const correctedParsed = {
-              ...parsed,
-              items: [
-                {
-                  ...parsed.items[0],
-                  name: searchResponse.suggestion!,
-                },
-              ],
-            };
-
-            const correctedResponse = intelligentSearch(
-              correctedParsed,
-              mockProducts,
-            );
-
-            if (correctedResponse.results.length > 0) {
-              finalResults = correctedResponse.results;
-              finalMessage = `Showing results for "${searchResponse.suggestion}" (auto-corrected)`;
+            if (response.ok) {
+              const data = await response.json();
+              aiCategory = data?.category || aiCategory;
             }
+          } catch (err) {
+            console.error("Categorization failed:", err);
           }
 
-          if (!finalMessage) {
-            finalMessage =
-              finalResults.length === 0
-                ? "No products found."
-                : `Found ${finalResults.length} matches`;
+          const existingIndex = updatedItems.findIndex(
+            (i) => i.name.toLowerCase() === name.toLowerCase(),
+          );
+
+          if (existingIndex !== -1) {
+            updatedItems[existingIndex] = {
+              ...updatedItems[existingIndex],
+              quantity: updatedItems[existingIndex].quantity + quantity,
+              addedCount: (updatedItems[existingIndex].addedCount || 0) + 1,
+            };
+          } else {
+            updatedItems.push({
+              id: crypto.randomUUID(),
+              name,
+              quantity,
+              price,
+              category: aiCategory,
+              addedCount: 1,
+            });
           }
+          recordPurchase(name);
+        }
 
-          setSearchResults(finalResults);
-          setMessage(finalMessage);
-          break;
+        recordBasket(updatedItems.map((i) => i.name));
+        setItems(updatedItems);
+        ToastPremium({ type: "success", message: "Items added successfully" });
+        setIsLoading(false);
+        return;
+      }
 
-        default:
-          setMessage("Command recognized, but no action taken.");
+      if (action === "search" && parsedItems?.length) {
+        const searchResponse = intelligentSearch(parsed, mockProducts);
+        let finalResults = searchResponse.results;
+        let finalMessage = "";
+
+        if (
+          (searchResponse.results.length === 0 || searchResponse.topScore < 3) &&
+          searchResponse.suggestion
+        ) {
+          const correctedResponse = intelligentSearch(
+            { ...parsed, items: [{ ...parsed.items[0], name: searchResponse.suggestion }] },
+            mockProducts,
+          );
+          if (correctedResponse.results.length > 0) {
+            finalResults = correctedResponse.results;
+            finalMessage = `Showing results for "${searchResponse.suggestion}"`;
+          }
+        }
+
+        if (!finalMessage) {
+          finalMessage =
+            finalResults.length === 0
+              ? "No products found."
+              : `Found ${finalResults.length} matches`;
+        }
+
+        setSearchResults(finalResults);
+        ToastPremium({ type: "info", message: finalMessage });
+        return;
       }
     } catch (error) {
       console.error("Voice handler error:", error);
-      setMessage("Assistant encountered an error.");
+      ToastPremium({ type: "error", message: "I didn't understand that." });
       setIsLoading(false);
     }
   };
 
+  /* ── Render ─────────────────────────────────────────────────── */
   return (
     <>
-      {/* Global premium styles */}
       <style jsx global>{`
-        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600&family=DM+Sans:wght@300;400;500&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Instrument+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap');
 
         :root {
-          --ink: #0D0D12;
-          --paper: #F7F5F0;
-          --cream: #EDE9E1;
-          --warm-white: #FAFAF7;
-          --gold: #C9A84C;
-          --gold-light: #E8CA7A;
-          --gold-dim: rgba(201, 168, 76, 0.15);
-          --sage: #7A8C7B;
-          --charcoal: #2A2A35;
-          --mist: rgba(13, 13, 18, 0.06);
-          --border: rgba(13, 13, 18, 0.09);
-          --shadow-sm: 0 2px 12px rgba(13,13,18,0.06);
-          --shadow-md: 0 8px 32px rgba(13,13,18,0.10);
-          --shadow-lg: 0 24px 64px rgba(13,13,18,0.13);
-          --radius: 18px;
-          --radius-sm: 10px;
+          --bg:         #07090E;
+          --s1:         #0D1017;
+          --s2:         #131923;
+          --s3:         #1B2333;
+          --border:     rgba(255,255,255,0.06);
+          --border-hi:  rgba(255,255,255,0.12);
+          --em:         #1EE8A0;
+          --em-dim:     rgba(30,232,160,0.08);
+          --em-glow:    rgba(30,232,160,0.22);
+          --em-border:  rgba(30,232,160,0.2);
+          --text:       #E2E8F4;
+          --text-2:     rgba(226,232,244,0.5);
+          --text-3:     rgba(226,232,244,0.25);
+          --r:          16px;
+          --r-lg:       22px;
         }
 
         *, *::before, *::after { box-sizing: border-box; }
-
         html { scroll-behavior: smooth; }
 
         body {
-          font-family: 'DM Sans', sans-serif;
-          background-color: var(--warm-white);
-          color: var(--ink);
+          font-family: 'Instrument Sans', sans-serif;
+          background: var(--bg);
+          color: var(--text);
           -webkit-font-smoothing: antialiased;
         }
 
-        /* Stagger-in animation for sections */
-        @keyframes fadeUp {
-          from { opacity: 0; transform: translateY(28px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-        .fade-up {
-          animation: fadeUp 0.65s cubic-bezier(0.22, 1, 0.36, 1) both;
-        }
-        .fade-up-1 { animation-delay: 0.05s; }
-        .fade-up-2 { animation-delay: 0.18s; }
-        .fade-up-3 { animation-delay: 0.30s; }
-        .fade-up-4 { animation-delay: 0.42s; }
-        .fade-up-5 { animation-delay: 0.54s; }
+        ::-webkit-scrollbar            { width: 5px; }
+        ::-webkit-scrollbar-track      { background: var(--bg); }
+        ::-webkit-scrollbar-thumb      { background: var(--s3); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover{ background: rgba(30,232,160,0.15); }
 
-        /* Shimmer for loading state */
-        @keyframes shimmer {
-          0%   { background-position: -400px 0; }
-          100% { background-position: 400px 0; }
-        }
-
-        /* Pulse dot */
-        @keyframes pulseDot {
-          0%, 100% { opacity: 1; transform: scale(1); }
-          50%       { opacity: 0.5; transform: scale(0.75); }
-        }
-
-        /* Gold shimmer line */
-        @keyframes goldSlide {
-          from { transform: translateX(-100%); }
-          to   { transform: translateX(100%); }
-        }
-
-        .page-wrapper {
+        /* Page */
+        .ps {
           display: flex;
           flex-direction: column;
           min-height: 100vh;
-          background: var(--warm-white);
-          /* Subtle linen texture via repeating gradient */
+          background: var(--bg);
           background-image:
-            radial-gradient(ellipse 80% 60% at 50% -10%, rgba(201,168,76,0.07) 0%, transparent 70%),
-            url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Crect width='4' height='4' fill='%23f7f5f0'/%3E%3Crect x='0' y='0' width='1' height='1' fill='rgba(0,0,0,0.015)'/%3E%3C/svg%3E");
+            radial-gradient(ellipse 75% 45% at 50% -8%, rgba(30,232,160,0.09) 0%, transparent 60%),
+            radial-gradient(ellipse 45% 30% at 90% 95%, rgba(30,232,160,0.05) 0%, transparent 55%);
         }
 
-        .main-content {
+        .mc {
           flex-grow: 1;
-          max-width: 860px;
+          max-width: 880px;
           margin: 0 auto;
           width: 100%;
-          padding: 0 24px 80px;
-          display: flex;
-          flex-direction: column;
-          gap: 0;
+          padding: 0 24px 96px;
         }
 
-        /* ── Hero / Voice section ───────────────────────────── */
-        .hero-section {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          padding: 72px 0 56px;
-          position: relative;
-        }
+        /* Hero */
+        .hero { display:flex; flex-direction:column; align-items:center; text-align:center; padding:76px 0 60px; }
 
-        .hero-eyebrow {
-          font-family: 'DM Sans', sans-serif;
-          font-size: 11px;
-          font-weight: 500;
-          letter-spacing: 0.18em;
-          text-transform: uppercase;
-          color: var(--gold);
-          margin-bottom: 16px;
-          display: flex;
+        .hero-tag {
+          display: inline-flex;
           align-items: center;
           gap: 8px;
+          font-family: 'Syne', sans-serif;
+          font-size: 10px;
+          font-weight: 700;
+          letter-spacing: 0.22em;
+          text-transform: uppercase;
+          color: var(--em);
+          border: 1px solid var(--em-border);
+          border-radius: 100px;
+          padding: 5px 15px;
+          margin-bottom: 30px;
+          background: var(--em-dim);
         }
-        .hero-eyebrow::before,
-        .hero-eyebrow::after {
-          content: '';
-          display: block;
-          width: 28px;
-          height: 1px;
-          background: var(--gold);
-          opacity: 0.5;
+        .hero-dot {
+          width: 5px; height: 5px;
+          border-radius: 50%;
+          background: var(--em);
+          animation: blink 1.8s ease-in-out infinite;
         }
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.25} }
 
-        .hero-title {
-          font-family: 'Playfair Display', serif;
-          font-size: clamp(32px, 5vw, 46px);
-          font-weight: 500;
-          color: var(--ink);
-          text-align: center;
-          line-height: 1.18;
-          margin: 0 0 10px;
-          letter-spacing: -0.01em;
+        .hero-h1 {
+          font-family: 'Syne', sans-serif;
+          font-size: clamp(36px, 5.8vw, 54px);
+          font-weight: 800;
+          line-height: 1.07;
+          letter-spacing: -0.03em;
+          color: var(--text);
+          margin-bottom: 16px;
+          max-width: 540px;
         }
+        .hero-h1 em { font-style:normal; color: var(--em); }
 
-        .hero-subtitle {
+        .hero-sub {
           font-size: 15px;
-          color: rgba(13,13,18,0.45);
           font-weight: 300;
-          margin-bottom: 44px;
-          letter-spacing: 0.01em;
+          color: var(--text-2);
+          margin-bottom: 52px;
+          max-width: 340px;
+          line-height: 1.65;
         }
 
-        /* ── Section card wrapper ───────────────────────────── */
-        .section-card {
-          background: #FFFFFF;
+        /* Voice glow */
+        .vring {
+          position: relative;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .vring::before {
+          content: '';
+          position: absolute;
+          inset: -32px;
+          border-radius: 50%;
+          background: radial-gradient(circle, var(--em-glow) 0%, transparent 68%);
+          animation: rpulse 2.8s ease-in-out infinite;
+          pointer-events: none;
+        }
+        @keyframes rpulse { 0%,100%{opacity:.5;transform:scale(1)} 50%{opacity:1;transform:scale(1.1)} }
+
+        /* Loading bar */
+        .ltrack { width:90px; height:2px; background:var(--s3); border-radius:2px; margin-top:26px; overflow:hidden; }
+        .lbar   { height:100%; width:38%; background:var(--em); border-radius:2px; animation:lslide 1s ease-in-out infinite alternate; box-shadow:0 0 8px var(--em); }
+        @keyframes lslide { from{transform:translateX(-100%)} to{transform:translateX(350%)} }
+
+        /* Section cards */
+        .sc {
+          background: var(--s1);
           border: 1px solid var(--border);
-          border-radius: var(--radius);
-          box-shadow: var(--shadow-sm);
+          border-radius: var(--r-lg);
           overflow: hidden;
-          margin-bottom: 20px;
-          transition: box-shadow 0.3s ease;
+          margin-bottom: 14px;
+          transition: border-color .25s, box-shadow .25s;
         }
-        .section-card:hover {
-          box-shadow: var(--shadow-md);
+        .sc:hover {
+          border-color: var(--border-hi);
+          box-shadow: 0 0 0 1px rgba(30,232,160,0.05), 0 20px 50px rgba(0,0,0,.4);
         }
-
-        .section-header {
+        .sc-head {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding: 22px 28px 18px;
+          padding: 18px 26px;
           border-bottom: 1px solid var(--border);
         }
-
-        .section-label {
-          font-family: 'Playfair Display', serif;
-          font-size: 17px;
-          font-weight: 500;
-          color: var(--ink);
-          letter-spacing: -0.01em;
-        }
-
-        .section-badge {
+        .sc-title {
+          font-family: 'Syne', sans-serif;
           font-size: 11px;
-          font-weight: 500;
-          letter-spacing: 0.08em;
+          font-weight: 700;
+          letter-spacing: 0.16em;
           text-transform: uppercase;
-          color: var(--gold);
-          background: var(--gold-dim);
-          border: 1px solid rgba(201,168,76,0.2);
+          color: var(--text-2);
+        }
+        .sc-pill {
+          font-family: 'Syne', sans-serif;
+          font-size: 10px;
+          font-weight: 700;
+          letter-spacing: 0.08em;
+          color: var(--em);
+          background: var(--em-dim);
+          border: 1px solid var(--em-border);
           border-radius: 100px;
-          padding: 3px 10px;
+          padding: 3px 11px;
         }
+        .sc-body { padding: 24px 26px; }
 
-        .section-body {
-          padding: 24px 28px;
-        }
-
-        /* ── Divider ────────────────────────────────────────── */
-        .ornamental-divider {
+        /* Grand total */
+        .total {
+          background: linear-gradient(135deg, var(--s2) 0%, var(--s1) 100%);
+          border: 1px solid var(--em-border);
+          border-radius: var(--r-lg);
+          padding: 26px 32px;
           display: flex;
           align-items: center;
-          gap: 14px;
-          margin: 36px 0;
-          opacity: 0.35;
+          justify-content: space-between;
+          margin-bottom: 14px;
+          position: relative;
+          overflow: hidden;
         }
-        .ornamental-divider span {
-          flex: 1;
+        .total::after {
+          content: '';
+          position: absolute;
+          top: 0; left: 0; right: 0;
           height: 1px;
-          background: var(--ink);
+          background: linear-gradient(90deg, transparent, var(--em), transparent);
+          opacity: 0.7;
         }
-        .ornamental-divider svg {
-          width: 14px;
-          height: 14px;
-          color: var(--gold);
+        .total-label {
+          font-family: 'Syne', sans-serif;
+          font-size: 11px;
+          font-weight: 700;
+          letter-spacing: 0.16em;
+          text-transform: uppercase;
+          color: var(--text-2);
+        }
+        .total-val {
+          font-family: 'Syne', sans-serif;
+          font-size: 32px;
+          font-weight: 800;
+          letter-spacing: -0.03em;
+          color: var(--em);
+          text-shadow: 0 0 28px var(--em-glow);
+        }
+
+        /* Divider */
+        .hrule {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          margin: 30px 0;
+        }
+        .hrule-line { flex:1; height:1px; background: var(--border); }
+        .hrule-gem {
+          width: 7px; height: 7px;
+          border: 1px solid rgba(30,232,160,0.35);
+          border-radius: 1px;
+          transform: rotate(45deg);
           flex-shrink: 0;
         }
 
-        /* ── Status message ─────────────────────────────────── */
-        .status-pill {
-          display: inline-flex;
-          align-items: center;
-          gap: 7px;
-          font-size: 13px;
-          font-weight: 400;
-          color: rgba(13,13,18,0.55);
-          background: rgba(13,13,18,0.04);
-          border: 1px solid var(--border);
-          border-radius: 100px;
-          padding: 6px 16px;
-          margin: 8px auto 0;
-        }
-        .status-pill::before {
-          content: '';
-          width: 6px;
-          height: 6px;
-          border-radius: 50%;
-          background: var(--sage);
-          animation: pulseDot 1.8s ease-in-out infinite;
-        }
-
-        /* ── Loading overlay for voice ──────────────────────── */
-        .voice-loading-bar {
-          width: 120px;
-          height: 2px;
-          background: linear-gradient(90deg, transparent 0%, var(--gold) 50%, transparent 100%);
-          background-size: 200% 100%;
-          animation: goldSlide 1.4s linear infinite;
-          border-radius: 2px;
-          margin-top: 20px;
-          opacity: ${isLoading ? 1 : 0};
-          transition: opacity 0.3s;
-        }
-
-        /* ── Empty state ────────────────────────────────────── */
-        .empty-hint {
-          text-align: center;
-          padding: 36px 20px;
-          color: rgba(13,13,18,0.35);
-          font-size: 14px;
-          font-weight: 300;
-          letter-spacing: 0.01em;
-        }
-        .empty-hint strong {
-          display: block;
-          font-family: 'Playfair Display', serif;
-          font-size: 18px;
-          font-weight: 500;
-          color: rgba(13,13,18,0.2);
+        /* Empty state */
+        .empty { text-align:center; padding:48px 16px; }
+        .empty-ico   { font-size:30px; margin-bottom:14px; opacity:.25; }
+        .empty-title {
+          font-family: 'Syne', sans-serif;
+          font-size: 15px;
+          font-weight: 600;
+          color: var(--text-3);
           margin-bottom: 6px;
         }
-
-        /* ── Scrollbar ──────────────────────────────────────── */
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(13,13,18,0.12); border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background: rgba(13,13,18,0.22); }
+        .empty-hint  { font-size:13px; font-weight:300; color:var(--text-3); }
+        .empty-hint code {
+          background: var(--s3);
+          color: var(--em);
+          padding: 1px 7px;
+          border-radius: 5px;
+          font-size: 12px;
+          font-family: 'SF Mono', 'Fira Code', monospace;
+        }
       `}</style>
 
-      <div className="page-wrapper">
+      <div className="ps">
         <Header />
 
-        <main className="main-content">
+        <main className="mc">
 
-          {/* ── Hero / Voice ─────────────────────────────────── */}
-          <section className="hero-section fade-up fade-up-1">
-            <p className="hero-eyebrow">Voice-Powered Shopping</p>
-            <h1 className="hero-title">What shall we pick up today?</h1>
-            <p className="hero-subtitle">Speak naturally — add, search, and organize your list.</p>
+          {/* Hero */}
+          <motion.section
+            className="hero"
+            initial="hidden"
+            animate="visible"
+            variants={{ visible: { transition: { staggerChildren: 0.1 } } }}
+          >
+            <motion.div variants={fadeUp} custom={0}>
+              <span className="hero-tag">
+                <span className="hero-dot" />
+                AI Voice Assistant
+              </span>
+            </motion.div>
 
-            <VoiceButton onTranscript={handleVoiceCommand} />
+            <motion.h1 className="hero-h1" variants={fadeUp} custom={1}>
+              Shop smarter,<br /><em>just speak.</em>
+            </motion.h1>
 
-            <div className="voice-loading-bar" />
+            <motion.p className="hero-sub" variants={fadeUp} custom={2}>
+              Add items, search products, and organise your list — hands‑free, instantly.
+            </motion.p>
 
-            {message && (
-              <div className="status-pill" role="status" aria-live="polite">
-                {message}
-              </div>
-            )}
-          </section>
+            <motion.div className="vring" variants={fadeUp} custom={3}>
+              <VoiceButton onTranscript={handleVoiceCommand} isLoading={isLoading} />
+            </motion.div>
 
-          {/* ── Shopping List ─────────────────────────────────── */}
-          <div className="fade-up fade-up-2">
-            <div className="section-card">
-              <div className="section-header">
-                <span className="section-label">Your List</span>
+            <AnimatePresence>
+              {isLoading && (
+                <motion.div
+                  className="ltrack"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                >
+                  <div className="lbar" />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.section>
+
+          {/* Shopping List */}
+          <motion.div variants={fadeUp} custom={4} initial="hidden" animate="visible">
+            <div className="sc">
+              <div className="sc-head">
+                <span className="sc-title">Your List</span>
                 {items.length > 0 && (
-                  <span className="section-badge">{items.length} item{items.length !== 1 ? 's' : ''}</span>
+                  <span className="sc-pill">{items.length}&nbsp;item{items.length !== 1 ? "s" : ""}</span>
                 )}
               </div>
-              <div className="section-body">
+              <div className="sc-body">
                 {items.length === 0 ? (
-                  <div className="empty-hint">
-                    <strong>Nothing here yet</strong>
-                    Try saying "Add milk and eggs"
+                  <div className="empty">
+                    <div className="empty-ico">🛒</div>
+                    <div className="empty-title">Nothing here yet</div>
+                    <p className="empty-hint">Try saying <code>"Add 2 kg mangoes"</code></p>
                   </div>
                 ) : (
                   <ShoppingList
@@ -561,50 +527,60 @@ export default function Home() {
                 )}
               </div>
             </div>
+          </motion.div>
+
+          {/* Grand Total */}
+          <AnimatePresence>
+            {items.length > 0 && (
+              <motion.div
+                className="total"
+                variants={scaleIn}
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+              >
+                <span className="total-label">Grand Total</span>
+                <span className="total-val">₹{totalPrice.toFixed(2)}</span>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Search Results */}
+          <AnimatePresence>
+            {searchResults.length > 0 && (
+              <motion.div variants={scaleIn} initial="hidden" animate="visible" exit="exit">
+                <div className="sc">
+                  <div className="sc-head">
+                    <span className="sc-title">Search Results</span>
+                    <span className="sc-pill">{searchResults.length}&nbsp;found</span>
+                  </div>
+                  <div className="sc-body">
+                    <CatalogResults results={searchResults} />
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Ornamental rule */}
+          <div className="hrule" aria-hidden="true">
+            <div className="hrule-line" />
+            <div className="hrule-gem" />
+            <div className="hrule-line" />
+            <div className="hrule-gem" />
+            <div className="hrule-line" />
           </div>
 
-          {/* ── Catalog Results ───────────────────────────────── */}
-          {searchResults.length > 0 && (
-            <div className="fade-up fade-up-3">
-              <div className="section-card">
-                <div className="section-header">
-                  <span className="section-label">Search Results</span>
-                  <span className="section-badge">{searchResults.length} found</span>
-                </div>
-                <div className="section-body">
-                  <CatalogResults results={searchResults} />
-                </div>
+          {/* Smart Insights */}
+          <motion.div variants={fadeUp} custom={5} initial="hidden" animate="visible">
+            <div className="sc">
+              <div className="sc-head">
+                <span className="sc-title">Smart Suggestions</span>
+                <span className="sc-pill">Personalised</span>
               </div>
-            </div>
-          )}
-
-          {/* ── Ornamental divider ───────────────────────────── */}
-          <div className="ornamental-divider fade-up fade-up-4" aria-hidden="true">
-            <span />
-            <svg viewBox="0 0 14 14" fill="currentColor">
-              <polygon points="7,1 9,5.5 14,6.3 10.5,9.7 11.4,14 7,11.7 2.6,14 3.5,9.7 0,6.3 5,5.5" />
-            </svg>
-            <span />
-            <svg viewBox="0 0 14 14" fill="currentColor">
-              <circle cx="7" cy="7" r="3" />
-            </svg>
-            <span />
-            <svg viewBox="0 0 14 14" fill="currentColor">
-              <polygon points="7,1 9,5.5 14,6.3 10.5,9.7 11.4,14 7,11.7 2.6,14 3.5,9.7 0,6.3 5,5.5" />
-            </svg>
-            <span />
-          </div>
-
-          {/* ── Smart Insights ────────────────────────────────── */}
-          <div className="fade-up fade-up-5">
-            <div className="section-card">
-              <div className="section-header">
-                <span className="section-label">Smart Suggestions</span>
-                <span className="section-badge">Personalised</span>
-              </div>
-              <div className="section-body">
+              <div className="sc-body">
                 <SmartInsights
-                  frequent={smartSuggestions.frequent}
+                  frequent={items.filter((i) => (i.addedCount || 0) >= 2).map((i) => i.name)}
                   reorder={smartSuggestions.reorder}
                   seasonal={smartSuggestions.seasonal}
                   alsoBought={alsoBought}
@@ -612,7 +588,7 @@ export default function Home() {
                 />
               </div>
             </div>
-          </div>
+          </motion.div>
 
         </main>
 
